@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # 1. Il Broker di Messaggi
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  # 2. Il Backend API
+  backend:
+    build: .
+    command: uvicorn app.api.main:app --host 0.0.0.0 --reload
+    volumes:
+      - .:/code  # Modifica codice in tempo reale
+    ports:
+      - "8000:8000"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+
+  # 3. Il Worker Celery (che fa il lavoro sporco)
+  worker:
+    build: .
+    command: celery -A app.tasks.worker.celery_app worker --loglevel=info
+    volumes:
+      - .:/code
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
