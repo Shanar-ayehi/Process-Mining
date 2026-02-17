@@ -1,3 +1,4 @@
+```text
 process-mining-thesis/
 ├── .env                    # Variabili d'ambiente (API Key HubSpot, Redis URL)
 ├── .gitignore              # File da ignorare (venv, __pycache__, dati sensibili)
@@ -51,6 +52,7 @@ process-mining-thesis/
 │       └── assets/         # CSS, Immagini, Loghi
 │
 └── tests/                  # Unit tests (opzionale per MVP ma consigliato)
+```
 
 # 📂 Struttura del Progetto
 
