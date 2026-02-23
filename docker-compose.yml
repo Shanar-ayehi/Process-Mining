@@ -1,11 +1,18 @@
 version: '3.8'
 
 services:
-  # 1. Il Broker di Messaggi
+  app:
+    build: .
+    volumes:
+      - ./data:/app/data  # <--- MAPS YOUR PC FOLDER TO THE CONTAINER
+      - ./logs:/app/logs  # <--- SAVES LOGS TO YOUR PC
+    environment:
+      - HUBSPOT_API_KEY=${HUBSPOT_API_KEY}
+
   redis:
     image: redis:alpine
-    ports:
-      - "6379:6379"
+    volumes:
+      - redis_data:/data # <--- PERSISTS REDIS QUEUE
 
   # 2. Il Backend API
   backend:
