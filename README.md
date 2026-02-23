@@ -1,58 +1,68 @@
+# Process Mining & CRM Analysis Platform 🚀
+
+> **Tesi di ITS:** Analisi Data-Driven per l'Ottimizzazione dei Flussi Aziendali  
+> **Candidato:** Francesco Scuderi  
+> **Stack:** Python 3.12, FastAPI, PM4Py, Polars, DuckDB, Taipy, Celery, Docker
+
+## 📋 Descrizione del Progetto
+
+Questo progetto è una piattaforma software progettata per colmare il divario tra i dati statici presenti nel CRM (HubSpot) e l'esecuzione reale dei processi aziendali.
+
+Utilizzando tecniche di **Process Mining**, il sistema estrae la **storia completa** delle opportunità di vendita (Deals), ricostruisce il grafo del processo (Directly-Follows Graph) e calcola KPI avanzati (colli di bottiglia, tassi di ri-lavorazione, tempi di attraversamento) che le dashboard standard del CRM non possono mostrare.
+
+### ✨ Funzionalità Chiave
+*   **Estrazione Storica:** Ricostruzione temporale degli eventi tramite API HubSpot *Property History*.
+*   **Privacy by Design:** Anonimizzazione automatica (hashing) dei dati utente (GDPR compliance).
+*   **Analisi Performante:** Utilizzo di **DuckDB** e **Polars** per l'elaborazione rapida di grandi volumi di dati.
+*   **Architettura Asincrona:** Gestione dei task pesanti (ETL, Mining) tramite **Celery** e **Redis**.
+*   **Dependency Management Moderno:** Gestione rigorosa delle librerie tramite **Poetry**.
+
+---
+
+## 📂 Struttura del Progetto
+
 ```text
 process-mining-thesis/
-├── .env                    # Variabili d'ambiente (API Key HubSpot, Redis URL)
-├── .gitignore              # File da ignorare (venv, __pycache__, dati sensibili)
-├── docker-compose.yml      # Orchestrazione container (Redis, App, Worker)
-├── README.md               # Documentazione del progetto
-├── requirements.txt        # Librerie Python
+├── .env                    # Variabili d'ambiente (API Key, Redis URL) - NON COMMITTARE
+├── .gitignore              # Esclusioni Git
+├── pyproject.toml          # Configurazione dipendenze (Poetry)
+├── poetry.lock             # Lock file delle versioni esatte
+├── docker-compose.yml      # Orchestrazione container con Volumi persistenti
+├── README.md               # Documentazione
 │
-├── data/                   # STORAGE LOCALE (Ignorato da Git)
-│   ├── raw/                # JSON grezzi scaricati da HubSpot
-│   ├── processed/          # File .parquet o .csv puliti (Event Logs)
-│   └── process_mining.db   # File database DuckDB
+├── data/                   # STORAGE LOCALE (Persistente tramite Docker Volumes)
+│   ├── raw/                # JSON grezzi con history da HubSpot
+│   ├── processed/          # Event Logs in formato .parquet (Anonimizzati)
+│   └── process_mining.db   # Database DuckDB
 │
-├── notebooks/              # Jupyter Notebooks per esperimenti e test veloci
-│   ├── 01_hubspot_test.ipynb
-│   └── 02_pm4py_proto.ipynb
+├── logs/                   # LOGGING DI SISTEMA
+│   ├── app.log             # Log generali
+│   └── errors.log          # Errori critici (es. API Rate Limits)
 │
-├── app/                    # CODICE SORGENTE PRINCIPALE
+├── notebooks/              # Area di prototipazione (Jupyter)
+│
+├── app/                    # CODICE SORGENTE
 │   ├── __init__.py
 │   │
-│   ├── core/               # Configurazioni globali
-│   │   ├── __init__.py
-│   │   ├── config.py       # Caricamento variabili .env (Pydantic Settings)
-│   │   └── database.py     # Connessione a DuckDB
+│   ├── core/               # Configurazioni
+│   │   ├── config.py       # Pydantic Settings
+│   │   ├── database.py     # Connessione DuckDB
+│   │   └── logger.py       # Configurazione Loguru (Rotazione logs)
 │   │
-│   ├── connectors/         # Integrazioni esterne
-│   │   ├── __init__.py
-│   │   └── hubspot.py      # Client per chiamare le API di HubSpot
+│   ├── connectors/         # Integrazioni
+│   │   └── hubspot.py      # Client HubSpot con Retry (Tenacity) e History Fetching
 │   │
-│   ├── services/           # LOGICA DI BUSINESS (Il cuore)
-│   │   ├── __init__.py
-│   │   ├── etl_service.py  # Pulisce i dati (Polars) -> crea Event Log
-│   │   └── mining_service.py # Usa PM4Py per calcolare grafi e statistiche
+│   ├── services/           # Logica di Business
+│   │   ├── etl_service.py  # Cleaning, Flattening & GDPR Hashing
+│   │   └── mining_service.py # PM4Py: Discovery & Conformance
 │   │
-│   ├── tasks/              # GESTIONE ASINCRONA (Celery)
-│   │   ├── __init__.py
-│   │   ├── worker.py       # Configurazione istanza Celery
-│   │   └── jobs.py         # Le funzioni decorate con @celery.task
+│   ├── tasks/              # Task Asincroni (Celery)
 │   │
-│   ├── api/                # BACKEND (FastAPI)
-│   │   ├── __init__.py
-│   │   ├── main.py         # Entry point FastAPI
-│   │   ├── routes.py       # Endpoint (/start-analysis, /status)
-│   │   └── schemas.py      # Modelli Pydantic (Input/Output dati)
+│   ├── api/                # Backend REST (FastAPI)
 │   │
-│   └── ui/                 # FRONTEND (Taipy)
-│       ├── __init__.py
-│       ├── main.py         # Entry point Taipy
-│       ├── pages/          # Pagine della dashboard
-│       │   ├── dashboard.py
-│       │   └── settings.py
-│       └── assets/         # CSS, Immagini, Loghi
+│   └── ui/                 # Frontend (Taipy)
 │
-└── tests/                  # Unit tests (opzionale per MVP ma consigliato)
-```
+└── tests/                  # Unit Tests (Pytest)
 
 # 📂 Struttura del Progetto
 
@@ -98,7 +108,7 @@ Il cuore dell'applicazione, suddiviso in moduli logici.
 
 ### 🔹 app/services/ (Logica di Business)
 Qui risiede l'intelligenza del software. Questi file sono puri e non dipendono né dal web server né dall'interfaccia grafica.
-*   **`etl_service.py`**: Contiene le funzioni di pulizia dati (Data Cleaning) utilizzando **Polars**. Trasforma i JSON grezzi in *Event Logs* standardizzati.
+*   **`etl_service.py`**: Contiene le funzioni di pulizia dati (Data Cleaning) utilizzando **Polars**. Trasforma i JSON grezzi in *Event Logs* standardizzati. Dopodiché applica anche logica di Hashing per Login
 *   **`mining_service.py`**: Wrappa la libreria **PM4Py**. Contiene le funzioni per calcolare il *Directly-Follows Graph (DFG)* e le statistiche di processo.
 
 ### 🔹 app/tasks/ (Gestione Asincrona)
