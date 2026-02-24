@@ -1,0 +1,28 @@
+[
+  {
+    "deal_id": "1001",
+    "history": [
+      {"stage": "New", "timestamp": "2023-10-01T08:00:00Z", "user_email": "mario.rossi@azienda.com"},
+      {"stage": "Qualified", "timestamp": "2023-10-03T10:30:00Z", "user_email": "mario.rossi@azienda.com"},
+      {"stage": "Closed Won", "timestamp": "2023-10-10T15:00:00Z", "user_email": "luigi.verdi@azienda.com"}
+    ]
+  },
+  {
+    "deal_id": "1002",
+    "history": [
+      {"stage": "New", "timestamp": "2023-10-02T09:00:00Z", "user_email": "anna.bianchi@azienda.com"},
+      {"stage": "Presentation", "timestamp": "2023-10-04T11:00:00Z", "user_email": "anna.bianchi@azienda.com"},
+      {"stage": "Closed Lost", "timestamp": "2023-10-06T14:00:00Z", "user_email": "anna.bianchi@azienda.com"}
+    ]
+  },
+  {
+    "deal_id": "1003",
+    "history": [
+      {"stage": "New", "timestamp": "2023-10-05T09:00:00Z", "user_email": "mario.rossi@azienda.com"},
+      {"stage": "Qualified", "timestamp": "2023-10-06T10:00:00Z", "user_email": "mario.rossi@azienda.com"},
+      {"stage": "Presentation", "timestamp": "2023-10-08T11:00:00Z", "user_email": "luigi.verdi@azienda.com"},
+      {"stage": "Qualified", "timestamp": "2023-10-09T09:00:00Z", "user_email": "luigi.verdi@azienda.com"},
+      {"stage": "Closed Won", "timestamp": "2023-10-12T16:00:00Z", "user_email": "luigi.verdi@azienda.com"}
+    ]
+  }
+]
