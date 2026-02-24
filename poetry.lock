@@ -776,12 +776,12 @@ version = "0.4.6"
 description = "Cross-platform colored terminal text."
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
-groups = ["main", "dev"]
-markers = "platform_system == \"Windows\" or sys_platform == \"win32\""
+groups = ["main", "dev", "env"]
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
+markers = {main = "platform_system == \"Windows\" or sys_platform == \"win32\"", dev = "platform_system == \"Windows\" or sys_platform == \"win32\"", env = "sys_platform == \"win32\""}
 
 [[package]]
 name = "comm"
@@ -2522,7 +2522,7 @@ version = "0.7.3"
 description = "Python logging made (stupidly) simple"
 optional = false
 python-versions = "<4.0,>=3.5"
-groups = ["main"]
+groups = ["main", "env"]
 files = [
     {file = "loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c"},
     {file = "loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6"},
@@ -5766,7 +5766,7 @@ version = "1.2.0"
 description = "A small Python utility to set file creation time on Windows"
 optional = false
 python-versions = ">=3.5"
-groups = ["main"]
+groups = ["main", "env"]
 markers = "sys_platform == \"win32\""
 files = [
     {file = "win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390"},
@@ -5856,4 +5856,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <3.13"
-content-hash = "50f66a0151034baeb700d8b36c7275007e736118bd8787974979b1314617f2fa"
+content-hash = "f7397ee5f5ec055537fd6830a7ef039a4828f60ee231fe6055e72ea01e65bde5"
