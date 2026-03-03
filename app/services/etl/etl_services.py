@@ -1,21 +1,25 @@
-# app/services/etl_services.py
 import json
 import hashlib
 import polars as pl
 from pathlib import Path
-from app.core.logging import get_logger
+from app.core.logger import get_logger
 from app.domain.events import EventLogSchema
 
 logger = get_logger()
 
 def hash_email(email: str) -> str:
-    """Anonimizza l'email per conformità GDPR usando hash MD5."""
+    """
+    Anonimizza l'email per conformità GDPR usando un hash MD5.
+    """
     if not email:
         return "Unknown"
     return "User_" + hashlib.md5(email.encode('utf-8')).hexdigest()[:8]
 
 def process_hubspot_json(filepath: str) -> pl.DataFrame:
-    """Legge JSON, lo appiattisce e ne valida la qualità tramite Pandera."""
+    """
+    Legge un JSON strutturato, lo appiattisce, esegue l'hashing GDPR
+    e valida la Data Quality tramite Pandera.
+    """
     logger.info(f"Inizio elaborazione ETL per il file: {filepath}")
     
     path = Path(filepath)
@@ -28,9 +32,9 @@ def process_hubspot_json(filepath: str) -> pl.DataFrame:
 
     flat_events = []
     
-    # Flattening
+    # Flattening: Trasformiamo il JSON annidato in una lista di righe piatte
     for deal in raw_data:
-        deal_id = str(deal.get("deal_id")) # Forza la stringa per sicurezza
+        deal_id = str(deal.get("deal_id")) # Cast a stringa per sicurezza
         history = deal.get("history", [])
         
         for event in history:
@@ -38,27 +42,31 @@ def process_hubspot_json(filepath: str) -> pl.DataFrame:
                 "case_id": deal_id,
                 "activity": event.get("stage"),
                 "timestamp": event.get("timestamp"),
-                "resource": hash_email(event.get("user_email"))
+                "resource": hash_email(event.get("user_email")) # Hashing applicato qui
             })
             
     if not flat_events:
         logger.warning("Nessun evento trovato nel file JSON.")
         return pl.DataFrame()
 
-    # 1. Creazione DataFrame
+    # Creazione del DataFrame Polars e parsing delle date in Datetime reali
     df = pl.DataFrame(flat_events).with_columns(
         pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ")
     )
     
-    # 2. Ordinamento cronologico OBBLIGATORIO per PM4Py
+    # Ordiniamo gli eventi cronologicamente per ogni caso (fondamentale per PM4Py!)
     df = df.sort(["case_id", "timestamp"])
     
-    # 3. DATA QUALITY: Validazione Pandera
+    # ==========================================
+    # DATA QUALITY CHECK (Pandera)
+    # ==========================================
     try:
-        df = EventLogSchema.validate(df)
-        logger.info(f"ETL e Validazione Data Quality completati. Generate {len(df)} righe.")
+        # Passiamo i dati alla nostra "Dogana"
+        df_validated = EventLogSchema.validate(df)
+        logger.info("✅ Validazione Data Quality superata con successo.")
     except Exception as e:
-        logger.error(f"Errore di Data Quality: i dati non rispettano il modello! {e}")
-        raise
-        
-    return df
+        logger.error(f"❌ Errore di Data Quality! I dati non rispettano lo schema: {e}")
+        raise # Blocchiamo l'esecuzione, non vogliamo salvare dati "sporchi" nel DB
+    
+    logger.info(f"ETL completato. Generate {len(df_validated)} righe validate.")
+    return df_validated

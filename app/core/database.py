@@ -1,7 +1,7 @@
 import duckdb
 import polars as pl
 from pathlib import Path
-from app.core.logging import get_logger
+from app.core.logger import get_logger
 
 logger = get_logger()
 

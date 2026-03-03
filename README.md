@@ -60,7 +60,7 @@ Integrazioni esterne verso altre piattaforme.
 Responsabilità trasversali e infrastrutturali.
 
 * **`config.py`**: configurazioni centralizzate (env, feature flags, integrazioni DWH).
-* **`logging.py`**: setup di Loguru o logging standard.
+* **`logger.py`**: setup di Loguru o logging standard.
 * **`security.py`**: utilità per gestione API key, autenticazione verso API interne.
 * **`privacy.py`**: funzioni per hashing/pseudonimizzazione, applicazione policy di masking, gestione retention.
 * **`exceptions.py`**: eccezioni custom comuni.

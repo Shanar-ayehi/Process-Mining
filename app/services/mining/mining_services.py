@@ -1,7 +1,7 @@
 import pm4py
 import polars as pl
 import pandas as pd
-from app.core.logging import get_logger
+from app.core.logger import get_logger
 
 logger = get_logger()
 
