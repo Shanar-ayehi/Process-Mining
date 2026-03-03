@@ -1,5 +1,5 @@
 from app.core.database import load_event_log
-from app.services.mining_services import discover_process_map, get_process_statistics
+from app.services.mining.mining_services import discover_process_map, get_process_statistics
 
 def run_mining_test():
     print("🔍 1. Lettura dati dal Database DuckDB...")

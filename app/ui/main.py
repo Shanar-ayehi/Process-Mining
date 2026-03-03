@@ -1,6 +1,6 @@
 from taipy.gui import Gui
 from app.core.database import load_event_log
-from app.services.mining_services import get_process_statistics
+from app.services.mining.mining_services import get_process_statistics
 
 # 1. Carichiamo i dati dal DB locale
 df = load_event_log()

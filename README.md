@@ -36,6 +36,25 @@ process-mining-hubspot/
 
 ## Dettaglio Cartelle
 
+### `app/api/`
+
+Livello di esposizione del backend REST.
+
+* **`main.py`**: creazione FastAPI app, mounting delle router.
+* **`routes_connector.py`**: endpoint per avviare/monitorare estrazioni da HubSpot.
+* **`routes_mining.py`**: endpoint per lanciare discovery, conformance, analisi varianti.
+* **`routes_dq.py`**: endpoint per report di data quality e reconciliation.
+* **`routes_analytics.py`**: endpoint per calcolo/consultazione score e KPI.
+* **`schemas.py`**: modelli Pydantic per input/output API.
+
+### `app/connectors/`
+
+Integrazioni esterne verso altre piattaforme.
+
+* **`hubspot_client.py`**: client HTTP/SDK centralizzato per HubSpot (deal, contact, ticket, report).
+* **`hubspot_mapper.py`**: mapping proprietà HubSpot → event log standard, incluso supporto per diversi template (Lead Management, Deal Pipeline, Ticketing).
+* **`warehouse_client.py`**: client generico per DWH (Snowflake, BigQuery, ecc.), opzionale.
+
 ### `app/core/`
 
 Responsabilità trasversali e infrastrutturali.
@@ -54,53 +73,34 @@ Modelli concettuali e tipizzati usati da tutto il resto dell'architettura.
 * **`kpi.py`**: strutture per KPI di processo (lead time, rework, throughput, score di qualità dato).
 * **`scoring.py`**: strutture per output dei modelli predittivi (es. *process_health_score* per deal).
 
-### `app/connectors/`
-
-Integrazioni esterne verso altre piattaforme.
-
-* **`hubspot_client.py`**: client HTTP/SDK centralizzato per HubSpot (deal, contact, ticket, report).
-* **`hubspot_mapper.py`**: mapping proprietà HubSpot → event log standard, incluso supporto per diversi template (Lead Management, Deal Pipeline, Ticketing).
-* **`warehouse_client.py`**: client generico per DWH (Snowflake, BigQuery, ecc.), opzionale.
-
 ### `app/services/`
 
 Logica di business divisa in sottocartelle per responsabilità chiare.
-
-#### `etl/`
-
-* **`hubspot_etl.py`**: pipeline di estrazione, normalizzazione e salvataggio in `data/raw` e `data/processed`.
-* **`merge_sources.py`**: logica per fondere più sorgenti (HubSpot + billing, ecc.).
-
-#### `mining/`
-
-* **`discovery_service.py`**: wrapper su PM4Py per DFG, modelli di processo, varianti.
-* **`conformance_service.py`**: confronto tra modello teorico (da pipeline HubSpot) e log reali.
-
-#### `dq/` (Data Quality)
-
-* **`rules.py`**: definizione regole di qualità (great-expectations/pandera).
-* **`reconciliation.py`**: confronti tra log interni e Property Change Event Reports / report nativi.
 
 #### `analytics/`
 
 * **`feature_engineering.py`**: trasformazione event log in dataset tabellari per ML.
 * **`predictive_models.py`**: training e scoring (scikit-learn, xgboost).
 
+#### `dq/` (Data Quality)
+
+* **`rules.py`**: definizione regole di qualità (great-expectations/pandera).
+* **`reconciliation.py`**: confronti tra log interni e Property Change Event Reports / report nativi.
+
+#### `etl/`
+
+* **`hubspot_etl.py`**: pipeline di estrazione, normalizzazione e salvataggio in `data/raw` e `data/processed`.
+* **`merge_sources.py`**: logica per fondere più sorgenti (HubSpot + billing, ecc.).
+
 #### `integration/`
 
 * **`hubspot_sync.py`**: scrittura proprietà custom, gestione reverse ETL verso HubSpot.
 * **`journey_bridge.py`**: logica per collegare un journey report con le analisi di process mining.
 
-### `app/api/`
+#### `mining/`
 
-Livello di esposizione del backend REST.
-
-* **`main.py`**: creazione FastAPI app, mounting delle router.
-* **`routes_connector.py`**: endpoint per avviare/monitorare estrazioni da HubSpot.
-* **`routes_mining.py`**: endpoint per lanciare discovery, conformance, analisi varianti.
-* **`routes_dq.py`**: endpoint per report di data quality e reconciliation.
-* **`routes_analytics.py`**: endpoint per calcolo/consultazione score e KPI.
-* **`schemas.py`**: modelli Pydantic per input/output API.
+* **`discovery_service.py`**: wrapper su PM4Py per DFG, modelli di processo, varianti.
+* **`conformance_service.py`**: confronto tra modello teorico (da pipeline HubSpot) e log reali.
 
 ### `app/tasks/`
 

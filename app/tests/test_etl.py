@@ -1,4 +1,4 @@
-from app.services.etl_services import process_hubspot_json
+from app.services.etl.etl_services import process_hubspot_json
 from app.core.database import save_event_log, load_event_log
 
 def run_test():

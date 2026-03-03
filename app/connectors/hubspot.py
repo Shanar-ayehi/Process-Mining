@@ -1,6 +1,6 @@
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
-from app.core.logger import logger
+from app.core.logging import logger
 
 class HubSpotClient:
     def __init__(self, api_key: str):
