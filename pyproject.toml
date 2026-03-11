@@ -43,6 +43,9 @@ pyarrow = "*"
 [tool.poetry.group.ml.dependencies]
 # PREDICTIVE ANALYTICS
 scikit-learn = "*"
+simpy = "^4.1.1"
+xgboost = "^3.2.0"
+lightgbm = "^4.6.0"
 [tool.poetry.group.dev.dependencies]
 # TESTING & SVILUPPO
 pytest = "*"
