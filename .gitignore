@@ -184,3 +184,7 @@ cython_debug/
 *.db
 *.duckdb
 .png
+
+# Cline
+.clineignore
+.clinerules
