@@ -188,3 +188,18 @@ cython_debug/
 # Cline
 .clineignore
 .clinerules
+
+# LaTeX
+*.tex
+*.bib
+*.bbl
+*.bcf
+*.fls
+*.out
+*.aux
+*.fdb_latexmk
+*.xml
+*.synctex.gz
+*.pdf
+*.toc
+*.blg
