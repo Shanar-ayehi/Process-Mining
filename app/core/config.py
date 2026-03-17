@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     hubspot_api_base_url: str = "https://api.hubapi.com"
     hubspot_rate_limit_delay: float = 0.1  # seconds between requests
     
+    # HubSpot OAuth 2.0
+    hubspot_client_id: Optional[str] = None
+    hubspot_client_secret: Optional[str] = None
+    hubspot_redirect_uri: Optional[str] = None
+    
     # Celery
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"

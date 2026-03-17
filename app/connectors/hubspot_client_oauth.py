@@ -15,6 +15,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.logger import get_logger
+from app.core.config import settings
 from app.models.auth import Token
 
 logger = get_logger()
@@ -86,8 +87,8 @@ class HubSpotOAuthClient:
                     "https://api.hubapi.com/oauth/v1/token",
                     data={
                         "grant_type": "refresh_token",
-                        "client_id": "YOUR_CLIENT_ID",  # Da configurare
-                        "client_secret": "YOUR_CLIENT_SECRET",  # Da configurare
+                        "client_id": settings.hubspot_client_id,
+                        "client_secret": settings.hubspot_client_secret,
                         "refresh_token": token_record.refresh_token
                     },
                     headers={"Content-Type": "application/x-www-form-urlencoded"}
@@ -326,6 +327,104 @@ class HubSpotOAuthClient:
         response = await self._make_request("GET", endpoint, params=params)
         
         return response.get("results", [])
+    
+    async def exchange_code_for_token(self, code: str, redirect_uri: Optional[str] = None) -> bool:
+        """
+        Scambia l'authorization code per i token di accesso.
+        
+        Args:
+            code: Authorization code ricevuto da HubSpot
+            redirect_uri: URI di redirect (opzionale, usa settings se non fornito)
+            
+        Returns:
+            bool: True se lo scambio è riuscito
+        """
+        try:
+            # Usa il redirect_uri fornito o quello dalle settings
+            final_redirect_uri = redirect_uri or settings.hubspot_redirect_uri
+            
+            if not final_redirect_uri:
+                logger.error("Nessun redirect_uri disponibile per lo scambio token")
+                return False
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.hubapi.com/oauth/v1/token",
+                    data={
+                        "grant_type": "authorization_code",
+                        "client_id": settings.hubspot_client_id,
+                        "client_secret": settings.hubspot_client_secret,
+                        "redirect_uri": final_redirect_uri,
+                        "code": code
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                
+                if response.status_code == 200:
+                    token_data = response.json()
+                    
+                    # Ottieni informazioni utente per creare il record
+                    user_info = await self._get_user_info(token_data["access_token"])
+                    
+                    # Crea nuovo record token nel database
+                    new_token = Token(
+                        hubspot_user_id=user_info["user_id"],
+                        hubspot_portal_id=user_info["hub_id"],
+                        access_token=token_data["access_token"],
+                        refresh_token=token_data["refresh_token"],
+                        expires_at=datetime.utcnow() + timedelta(seconds=token_data["expires_in"]),
+                        scopes=",".join([
+                            "crm.objects.deals.read",
+                            "crm.objects.deals.write", 
+                            "crm.objects.contacts.read",
+                            "crm.objects.contacts.write",
+                            "crm.objects.companies.read",
+                            "timeline.events.read",
+                            "timeline.events.write",
+                            "engagements.read",
+                            "settings.user.read"
+                        ])
+                    )
+                    
+                    self.db.add(new_token)
+                    await self.db.commit()
+                    
+                    logger.info(f"Token exchange riuscito per utente {user_info['user_id']}")
+                    return True
+                else:
+                    logger.error(f"Token exchange fallito: {response.status_code} - {response.text}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Errore durante token exchange: {str(e)}")
+            return False
+    
+    async def _get_user_info(self, access_token: str) -> Dict:
+        """
+        Ottiene le informazioni utente da HubSpot.
+        
+        Args:
+            access_token: Token di accesso valido
+            
+        Returns:
+            dict: Informazioni utente
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.hubapi.com/oauth/v1/access-tokens",
+                    headers={"Authorization": f"Bearer {access_token}"}
+                )
+                
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.error(f"Failed to get user info: {response.status_code} - {response.text}")
+                    raise Exception(f"Failed to get user info: {response.text}")
+                    
+        except Exception as e:
+            logger.error(f"Errore durante recupero info utente: {str(e)}")
+            raise
     
     async def get_usage_stats(self) -> Dict:
         """Restituisce statistiche sull'uso del client."""

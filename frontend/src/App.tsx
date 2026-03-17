@@ -1,12 +1,15 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-import { CssBaseline, Container, Box, AppBar, Toolbar, Typography, Button } from '@mui/material'
-import { Dashboard as DashboardIcon, Analytics as AnalyticsIcon, Settings as SettingsIcon } from '@mui/icons-material'
+import React, { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
+import { CssBaseline, Container, Box, AppBar, Toolbar, Typography, Button, Snackbar, Alert } from '@mui/material'
+import { Dashboard as DashboardIcon, Analytics as AnalyticsIcon, Settings as SettingsIcon, Login as LoginIcon, Logout as LogoutIcon } from '@mui/icons-material'
 
 // Importiamo i componenti delle pagine
 import ProcessList from './components/ProcessList'
 import ProcessDetail from './components/ProcessDetail'
 import ProcessAnalysis from './components/ProcessAnalysis'
+
+// Importiamo il servizio auth
+import { useAuth, checkAuthStatus } from './services/auth'
 
 function App() {
   return (

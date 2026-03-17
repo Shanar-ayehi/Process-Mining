@@ -1,6 +1,5 @@
-import requests
+import httpx
 import asyncio
-import aiohttp
 from typing import Dict, List, Optional, AsyncGenerator, Union
 from datetime import datetime, timedelta
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -44,13 +43,13 @@ class HubSpotClient:
         self.last_request_time = 0
     
     @retry(
-        retry=retry_if_exception_type((requests.exceptions.RequestException, RateLimitError)),
+        retry=retry_if_exception_type((httpx.RequestError, RateLimitError)),
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         reraise=True
     )
-    def _make_request(self, method: str, endpoint: str, params: Dict = None, 
-                     data: Dict = None) -> Dict:
+    async def _make_request(self, method: str, endpoint: str, params: Dict = None, 
+                           data: Dict = None) -> Dict:
         """
         Esegue una richiesta HTTP all'API HubSpot con retry automatico.
         
@@ -63,27 +62,26 @@ class HubSpotClient:
         Returns:
             Risposta JSON
         """
-        import time
-        
-        # Rate limiting semplice
-        current_time = time.time()
+        # Rate limiting asincrono
+        current_time = asyncio.get_event_loop().time()
         if current_time - self.last_request_time < self.rate_limit_delay:
-            time.sleep(self.rate_limit_delay - (current_time - self.last_request_time))
+            await asyncio.sleep(self.rate_limit_delay - (current_time - self.last_request_time))
         
         url = f"{self.base_url}{endpoint}"
         
         try:
-            response = requests.request(
-                method=method,
-                url=url,
-                headers=self.headers,
-                params=params,
-                json=data,
-                timeout=30
-            )
+            async with httpx.AsyncClient() as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=self.headers,
+                    params=params,
+                    json=data,
+                    timeout=30
+                )
             
             self.request_count += 1
-            self.last_request_time = time.time()
+            self.last_request_time = current_time
             
             # Gestione rate limiting
             if response.status_code == 429:
@@ -98,16 +96,16 @@ class HubSpotClient:
             
             return response.json()
             
-        except requests.exceptions.Timeout:
+        except httpx.TimeoutException:
             logger.error("Timeout nella richiesta a HubSpot")
             raise
-        except requests.exceptions.ConnectionError:
+        except httpx.NetworkError:
             logger.error("Errore di connessione a HubSpot")
             raise
     
-    def get_deals(self, limit: int = 100, after: Optional[str] = None,
-                 properties: Optional[List[str]] = None,
-                 properties_with_history: Optional[List[str]] = None) -> Dict:
+    async def get_deals(self, limit: int = 100, after: Optional[str] = None,
+                       properties: Optional[List[str]] = None,
+                       properties_with_history: Optional[List[str]] = None) -> Dict:
         """
         Recupera i deal da HubSpot.
         
@@ -137,9 +135,9 @@ class HubSpotClient:
             params["propertiesWithHistory"] = ",".join(properties_with_history)
         
         logger.info(f"Recupero deal da HubSpot (limit={limit})")
-        return self._make_request("GET", endpoint, params=params)
+        return await self._make_request("GET", endpoint, params=params)
     
-    def get_deal_history(self, deal_id: str, property_name: str = "dealstage") -> List[Dict]:
+    async def get_deal_history(self, deal_id: str, property_name: str = "dealstage") -> List[Dict]:
         """
         Recupera la cronologia di una proprietà specifica per un deal.
         
@@ -153,9 +151,9 @@ class HubSpotClient:
         endpoint = f"/crm/v3/objects/deals/{deal_id}/associations/properties/{property_name}"
         
         logger.info(f"Recupero cronologia per deal {deal_id}, proprietà {property_name}")
-        return self._make_request("GET", endpoint)
+        return await self._make_request("GET", endpoint)
     
-    def get_all_deals_with_history(self, properties_with_history: Optional[List[str]] = None) -> List[Dict]:
+    async def get_all_deals_with_history(self, properties_with_history: Optional[List[str]] = None) -> List[Dict]:
         """
         Recupera tutti i deal con la cronologia delle proprietà specificate.
         
@@ -172,7 +170,7 @@ class HubSpotClient:
         after = None
         
         while True:
-            response = self.get_deals(
+            response = await self.get_deals(
                 limit=100,
                 after=after,
                 properties_with_history=properties_with_history
@@ -194,7 +192,7 @@ class HubSpotClient:
         logger.info(f"Recuperati {len(all_deals)} deal con cronologia")
         return all_deals
     
-    def get_contacts(self, limit: int = 100, after: Optional[str] = None) -> Dict:
+    async def get_contacts(self, limit: int = 100, after: Optional[str] = None) -> Dict:
         """Recupera i contatti da HubSpot."""
         endpoint = "/crm/v3/objects/contacts"
         
@@ -207,9 +205,9 @@ class HubSpotClient:
             params["after"] = after
         
         logger.info(f"Recupero contatti da HubSpot (limit={limit})")
-        return self._make_request("GET", endpoint, params=params)
+        return await self._make_request("GET", endpoint, params=params)
     
-    def get_companies(self, limit: int = 100, after: Optional[str] = None) -> Dict:
+    async def get_companies(self, limit: int = 100, after: Optional[str] = None) -> Dict:
         """Recupera le aziende da HubSpot."""
         endpoint = "/crm/v3/objects/companies"
         
@@ -222,14 +220,14 @@ class HubSpotClient:
             params["after"] = after
         
         logger.info(f"Recupero aziende da HubSpot (limit={limit})")
-        return self._make_request("GET", endpoint, params=params)
+        return await self._make_request("GET", endpoint, params=params)
     
-    def get_pipeline_stages(self) -> List[Dict]:
+    async def get_pipeline_stages(self) -> List[Dict]:
         """Recupera le fasi delle pipeline da HubSpot."""
         endpoint = "/crm/v3/pipelines/deals"
         
         logger.info("Recupero pipeline stages da HubSpot")
-        response = self._make_request("GET", endpoint)
+        response = await self._make_request("GET", endpoint)
         
         stages = []
         for pipeline in response.get("results", []):
