@@ -1,0 +1,54 @@
+hubspot:
+  version: "v1"
+  pipeline_stages:
+    - stage_id: "new"
+      display_name: "Nuovo Lead"
+      order: 1
+      is_final: false
+    - stage_id: "qualified"
+      display_name: "Lead Qualificato"
+      order: 2
+      is_final: false
+    - stage_id: "proposal_sent"
+      display_name: "Proposta Inviata"
+      order: 3
+      is_final: false
+    - stage_id: "negotiation"
+      display_name: "Negoziazione"
+      order: 4
+      is_final: false
+    - stage_id: "closed_won"
+      display_name: "Chiuso Vinto"
+      order: 5
+      is_final: true
+    - stage_id: "closed_lost"
+      display_name: "Chiuso Perso"
+      order: 6
+      is_final: true
+  
+  data_structure:
+    deal_history_field: "propertiesWithHistory"
+    stage_field: "dealstage"
+    timestamp_field: "timestamp"
+    deal_id_field: "id"
+    contact_id_field: "id"
+    company_id_field: "id"
+  
+  custom_properties:
+    - "dealname"
+    - "amount"
+    - "pipeline"
+    - "dealtype"
+    - "hubspot_owner_id"
+  
+  required_properties:
+    - "dealstage"
+    - "createdate"
+    - "closedate"
+  
+  privacy_fields:
+    - "email"
+    - "firstname"
+    - "lastname"
+    - "phone"
+    - "mobilephone"

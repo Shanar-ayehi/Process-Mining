@@ -3,6 +3,7 @@ from datetime import datetime
 import polars as pl
 from app.core.logger import get_logger
 from app.core.privacy import privacy_manager
+from app.core.hubspot_config import hubspot_config_manager
 
 logger = get_logger()
 
@@ -10,15 +11,8 @@ class HubSpotMapper:
     """Mapper per la trasformazione dei dati HubSpot in formati standard per Process Mining."""
     
     def __init__(self):
-        self.stage_mapping = {
-            "appointmentscheduled": "Appuntamento Pianificato",
-            "qualifiedtobuy": "Qualificato all'Acquisto", 
-            "presentationscheduled": "Presentazione Pianificata",
-            "decisionmakerboughtin": "Decision Maker Coinvolto",
-            "contractsent": "Contratto Inviato",
-            "closedwon": "Chiuso Vinto",
-            "closedlost": "Chiuso Perso"
-        }
+        self.config_manager = hubspot_config_manager
+        self.data_structure = self.config_manager.get_data_structure()
     
     def map_deal_to_event_log(self, deal_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -31,36 +25,43 @@ class HubSpotMapper:
             Lista di eventi per il log
         """
         events = []
-        deal_id = deal_data.get('id')
+        deal_id = deal_data.get(self.data_structure.deal_id_field)
         deal_properties = deal_data.get('properties', {})
         
-        # Estrai la cronologia delle fasi
-        history_data = deal_data.get('propertiesWithHistory', {})
-        stage_history = history_data.get('dealstage', [])
+        # Estrai la cronologia delle fasi usando la configurazione dinamica
+        history_data = deal_data.get(self.data_structure.deal_history_field, {})
+        stage_history = history_data.get(self.data_structure.stage_field, [])
         
         # Ordina la cronologia per timestamp
-        stage_history.sort(key=lambda x: x.get('timestamp', 0))
+        stage_history.sort(key=lambda x: x.get(self.data_structure.timestamp_field, 0))
         
         for record in stage_history:
-            # Mappa il nome della fase
+            # Mappa il nome della fase usando la configurazione dinamica
             stage_value = record.get('value', '')
-            activity_name = self.stage_mapping.get(stage_value.lower(), f"Fase Sconosciuta: {stage_value}")
+            activity_name = self.config_manager.get_stage_mapping(stage_value.lower())
+            if not activity_name:
+                activity_name = f"Fase Sconosciuta: {stage_value}"
+                logger.warning(f"Fase non mappata: {stage_value}")
             
             # Estrai informazioni aggiuntive
-            timestamp = self._parse_timestamp(record.get('timestamp'))
+            timestamp = self._parse_timestamp(record.get(self.data_structure.timestamp_field))
             source_id = record.get('sourceId', 'System')
             
-            # Crea evento
+            # Crea evento con proprietà configurabili
             event = {
                 "case_id": deal_id,
                 "activity": activity_name,
                 "timestamp": timestamp,
                 "resource": privacy_manager.hash_email(source_id),  # Privacy
-                "deal_name": deal_properties.get('dealname', ''),
-                "amount": deal_properties.get('amount', ''),
-                "pipeline": deal_properties.get('pipeline', ''),
-                "stage_id": stage_value
+                "stage_id": stage_value,
+                "stage_order": self.config_manager.get_stage_order(stage_value.lower()),
+                "is_final_stage": self.config_manager.is_final_stage(stage_value.lower())
             }
+            
+            # Aggiungi proprietà personalizzate configurabili
+            for prop in self.config_manager.config.custom_properties:
+                if prop in deal_properties:
+                    event[prop] = deal_properties[prop]
             
             events.append(event)
         
@@ -113,17 +114,29 @@ class HubSpotMapper:
             Dati contatto mappati
         """
         properties = contact_data.get('properties', {})
+        contact_id = contact_data.get(self.data_structure.contact_id_field)
         
-        return {
-            "contact_id": contact_data.get('id'),
-            "email": privacy_manager.hash_email(properties.get('email', '')),
-            "first_name": properties.get('firstname', ''),
-            "last_name": properties.get('lastname', ''),
-            "company": properties.get('company', ''),
-            "job_title": properties.get('jobtitle', ''),
+        # Crea entità base
+        entity = {
+            "contact_id": contact_id,
             "created_date": self._parse_timestamp(properties.get('createdate')),
             "last_modified": self._parse_timestamp(properties.get('lastmodifieddate'))
         }
+        
+        # Aggiungi campi privacy con pseudonimizzazione
+        for field in self.config_manager.get_privacy_fields():
+            if field in properties:
+                if field == 'email':
+                    entity[field] = privacy_manager.hash_email(properties[field])
+                else:
+                    entity[field] = privacy_manager.hash_field(properties[field], field)
+        
+        # Aggiungi altre proprietà configurabili
+        for prop in self.config_manager.config.custom_properties:
+            if prop in properties and prop not in self.config_manager.get_privacy_fields():
+                entity[prop] = properties[prop]
+        
+        return entity
     
     def map_company_to_entity(self, company_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -136,16 +149,21 @@ class HubSpotMapper:
             Dati azienda mappati
         """
         properties = company_data.get('properties', {})
+        company_id = company_data.get(self.data_structure.company_id_field)
         
-        return {
-            "company_id": company_data.get('id'),
-            "name": properties.get('name', ''),
-            "domain": properties.get('domain', ''),
-            "industry": properties.get('industry', ''),
-            "annual_revenue": properties.get('annualrevenue', ''),
+        # Crea entità base
+        entity = {
+            "company_id": company_id,
             "created_date": self._parse_timestamp(properties.get('createdate')),
             "last_modified": self._parse_timestamp(properties.get('lastmodifieddate'))
         }
+        
+        # Aggiungi proprietà configurabili
+        for prop in self.config_manager.config.custom_properties:
+            if prop in properties:
+                entity[prop] = properties[prop]
+        
+        return entity
     
     def _parse_timestamp(self, timestamp: Union[str, int, None]) -> Optional[str]:
         """

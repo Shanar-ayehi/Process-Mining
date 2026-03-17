@@ -5,24 +5,30 @@ import asyncio
 import aiohttp
 from app.core.logger import get_logger
 from app.core.config import settings
-from app.connectors.hubspot_client import HubSpotClient, HubSpotAPIError
+from app.connectors.hubspot_client_oauth import HubSpotOAuthClient, create_hubspot_client
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.connectors.hubspot_mapper import hubspot_mapper
 from app.core.privacy import privacy_manager
+from app.core.hubspot_config import hubspot_config_manager
 
 logger = get_logger()
 
 class DataExtractionService:
     """Servizio per l'estrazione dati da HubSpot e altre sorgenti."""
     
-    def __init__(self, hubspot_client: Optional[HubSpotClient] = None):
+    def __init__(self, db: AsyncSession):
         """
         Inizializza il servizio di estrazione dati.
         
         Args:
-            hubspot_client: Client HubSpot (se None, ne crea uno nuovo)
+            db: Sessione database per gestione token OAuth
         """
-        self.hubspot_client = hubspot_client or HubSpotClient()
+        self.db = db
         self.data_dir = settings.raw_data_dir
+    
+    async def _get_hubspot_client(self) -> HubSpotOAuthClient:
+        """Ottiene un client HubSpot OAuth con sessione database."""
+        return await create_hubspot_client(self.db)
     
     async def extract_deals_with_history(self, 
                                        properties_with_history: Optional[List[str]] = None,
@@ -37,14 +43,16 @@ class DataExtractionService:
         Returns:
             Lista di deal con cronologia
         """
+        # Usa la configurazione dinamica se non specificato
         if properties_with_history is None:
-            properties_with_history = ["dealstage"]
+            properties_with_history = [hubspot_config_manager.get_data_structure().stage_field]
         
         logger.info(f"Inizio estrazione deal con cronologia: {properties_with_history}")
         
         try:
             # Estrai dati da HubSpot
-            deals_data = self.hubspot_client.get_all_deals_with_history(
+            hubspot_client = await self._get_hubspot_client()
+            deals_data = await hubspot_client.get_all_deals_with_history(
                 properties_with_history=properties_with_history
             )
             
@@ -72,24 +80,24 @@ class DataExtractionService:
         logger.info("Inizio estrazione contatti da HubSpot")
         
         try:
+            hubspot_client = await self._get_hubspot_client()
             all_contacts = []
             after = None
             
             while True:
-                response = self.hubspot_client.get_contacts(limit=100, after=after)
-                contacts = response.get("results", [])
+                contacts = await hubspot_client.get_contacts(limit=100, after=after)
                 
                 if not contacts:
                     break
                 
                 all_contacts.extend(contacts)
                 
-                # Paginazione
-                paging = response.get("paging")
-                if paging and "next" in paging:
-                    after = paging["next"]["after"]
-                else:
+                # Controlla se ci sono altri risultati
+                if len(contacts) < 100:
                     break
+                
+                # Prepara prossima pagina
+                after = contacts[-1].get("id")
             
             if save_to_file:
                 timestamp = self._get_timestamp()
@@ -111,24 +119,24 @@ class DataExtractionService:
         logger.info("Inizio estrazione aziende da HubSpot")
         
         try:
+            hubspot_client = await self._get_hubspot_client()
             all_companies = []
             after = None
             
             while True:
-                response = self.hubspot_client.get_companies(limit=100, after=after)
-                companies = response.get("results", [])
+                companies = await hubspot_client.get_companies(limit=100, after=after)
                 
                 if not companies:
                     break
                 
                 all_companies.extend(companies)
                 
-                # Paginazione
-                paging = response.get("paging")
-                if paging and "next" in paging:
-                    after = paging["next"]["after"]
-                else:
+                # Controlla se ci sono altri risultati
+                if len(companies) < 100:
                     break
+                
+                # Prepara prossima pagina
+                after = companies[-1].get("id")
             
             if save_to_file:
                 timestamp = self._get_timestamp()
@@ -150,7 +158,8 @@ class DataExtractionService:
         logger.info("Inizio estrazione pipeline stages da HubSpot")
         
         try:
-            stages = self.hubspot_client.get_pipeline_stages()
+            hubspot_client = await self._get_hubspot_client()
+            stages = await hubspot_client.get_pipeline_stages()
             
             if save_to_file:
                 timestamp = self._get_timestamp()
@@ -245,16 +254,21 @@ class DataExtractionService:
         from datetime import datetime
         return datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    def get_extraction_stats(self) -> Dict[str, Union[int, str]]:
+    async def get_extraction_stats(self) -> Dict[str, Union[int, str]]:
         """Restituisce statistiche sull'estrazione."""
-        client_stats = self.hubspot_client.get_usage_stats()
+        hubspot_client = await self._get_hubspot_client()
+        client_stats = await hubspot_client.get_usage_stats()
+        config_stats = hubspot_config_manager.validate_config()
         
         return {
             "hubspot_requests": client_stats.get("request_count", 0),
             "rate_limit_delay": client_stats.get("rate_limit_delay", 0),
             "data_dir": str(self.data_dir),
+            "config_valid": config_stats.get("valid", False),
+            "stage_count": config_stats.get("stage_count", 0),
+            "custom_properties_count": config_stats.get("custom_properties_count", 0),
             "timestamp": self._get_timestamp()
         }
 
-# Creazione istanza globale
-data_extraction_service = DataExtractionService()
+# Nota: L'istanza globale non può essere creata qui perché richiede una sessione database
+# Le istanze devono essere create nei servizi che hanno accesso alla sessione database

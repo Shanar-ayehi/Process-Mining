@@ -97,6 +97,59 @@ class PrivacyManager:
         
         return df_filtered[mask]
     
+    def apply_data_retention_policy(self, retention_days: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Applica la policy di retention dei dati ai file.
+        
+        Args:
+            retention_days: Giorni di retention (se None, usa quelli di default)
+            
+        Returns:
+            Statistiche sull'operazione
+        """
+        import os
+        from datetime import datetime, timedelta
+        
+        if retention_days is None:
+            retention_days = self.retention_days
+        
+        stats = {
+            "files_processed": 0,
+            "files_deleted": 0,
+            "total_size_freed": 0,
+            "retention_days": retention_days
+        }
+        
+        cutoff_date = datetime.now() - timedelta(days=retention_days)
+        
+        # Cancella file vecchi nella directory dati
+        data_dirs = [
+            settings.raw_data_dir,
+            settings.staged_data_dir,
+            settings.processed_data_dir
+        ]
+        
+        for data_dir in data_dirs:
+            if data_dir.exists():
+                for file_path in data_dir.glob("**/*.json"):
+                    stats["files_processed"] += 1
+                    
+                    try:
+                        file_stat = file_path.stat()
+                        file_date = datetime.fromtimestamp(file_stat.st_mtime)
+                        
+                        if file_date < cutoff_date:
+                            file_size = file_stat.st_size
+                            file_path.unlink()
+                            stats["files_deleted"] += 1
+                            stats["total_size_freed"] += file_size
+                            logger.info(f"Cancellato file vecchio: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Errore nella cancellazione file {file_path}: {e}")
+        
+        logger.info(f"Retention policy completata: {stats['files_deleted']} file cancellati")
+        return stats
+    
     def mask_sensitive_values(self, value: str, 
                             preserve_chars: int = 2) -> str:
         """
