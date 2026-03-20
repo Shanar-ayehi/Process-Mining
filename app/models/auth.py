@@ -87,7 +87,7 @@ class AuthSession(Base):
     hubspot_portal_id = Column(String(255), nullable=False)
     jwt_token = Column(Text, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
-    metadata = Column(JSON, nullable=True)  # Dati aggiuntivi della sessione
+    session_metadata = Column(JSON, nullable=True)  # Dati aggiuntivi della sessione
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_activity = Column(DateTime(timezone=True), onupdate=func.now())
@@ -108,7 +108,7 @@ class AuthSession(Base):
             "hubspot_user_id": self.hubspot_user_id,
             "hubspot_portal_id": self.hubspot_portal_id,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "metadata": self.metadata,
+            "metadata": self.session_metadata,
             "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_activity": self.last_activity.isoformat() if self.last_activity else None

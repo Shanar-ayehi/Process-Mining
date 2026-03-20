@@ -1,4 +1,4 @@
 {
     "taipyStudio.gUI.elementsFilePaths": [],
-    "taipyStudio.config.mainPythonFile": "test_etl.py"
+    "taipyStudio.config.mainPythonFile": "main.py"
 }

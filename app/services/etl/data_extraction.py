@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Union, AsyncGenerator
+from typing import List, Dict, Optional, Union, Any
 from pathlib import Path
 import json
 import asyncio
@@ -272,3 +272,6 @@ class DataExtractionService:
 
 # Nota: L'istanza globale non può essere creata qui perché richiede una sessione database
 # Le istanze devono essere create nei servizi che hanno accesso alla sessione database
+
+# Placeholder per l'istanza globale (verrà creata nei servizi)
+data_extraction_service = None

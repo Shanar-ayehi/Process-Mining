@@ -59,6 +59,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"
 
 # Creazione istanza settings
 settings = Settings()
@@ -86,9 +87,10 @@ setup_directories()
 def bootstrap_system():
     """Esegue il bootstrap automatico del sistema."""
     if settings.auto_bootstrap:
+        logger = None
         try:
             from app.core.bootstrap import run_bootstrap_sync
-            logger = None
+            
             try:
                 from app.core.logger import get_logger
                 logger = get_logger()

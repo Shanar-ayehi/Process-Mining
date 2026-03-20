@@ -1,6 +1,6 @@
 import hashlib
 import pandas as pd
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from app.core.logger import get_logger
 from app.core.config import settings

@@ -47,3 +47,59 @@ def load_event_log(table_name: str = "event_log") -> pl.DataFrame:
         return pl.DataFrame()
     finally:
         conn.close()
+
+# Import SQLAlchemy per la funzione get_db
+try:
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker, declarative_base
+    from sqlalchemy import text
+    
+    # Configurazione SQLAlchemy per database relazionale (se necessario)
+    # Per ora usiamo SQLite in memoria per la gestione OAuth
+    SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./data/oauth.db"
+    
+    # Crea il motore asincrono
+    engine = create_async_engine(
+        SQLALCHEMY_DATABASE_URL,
+        echo=False,  # Imposta a True per vedere le query SQL
+        connect_args={"check_same_thread": False}  # Solo per SQLite
+    )
+    
+    # Crea la session factory
+    async_session = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    # Crea la base declarativa per i modelli SQLAlchemy
+    Base = declarative_base()
+    
+    async def get_db():
+        """
+        Dependency injection per ottenere una sessione database asincrona.
+        
+        Returns:
+            AsyncSession: Sessione database asincrona
+        """
+        async with async_session() as session:
+            try:
+                # Testiamo la connessione
+                await session.execute(text("SELECT 1"))
+                yield session
+            except Exception as e:
+                logger.error(f"Errore nella sessione database: {e}")
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
+                
+except ImportError:
+    logger.warning("SQLAlchemy non disponibile, la funzione get_db non sarà accessibile")
+    
+    async def get_db():
+        """Placeholder se SQLAlchemy non è disponibile."""
+        raise ImportError("SQLAlchemy non è installato. Installare con: pip install sqlalchemy aiosqlite")
+    
+    # Placeholder per Base se SQLAlchemy non è disponibile
+    class Base:
+        """Placeholder per Base se SQLAlchemy non è disponibile."""
+        pass

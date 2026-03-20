@@ -18,7 +18,7 @@ class EventLogSchema:
         "activity": Column(str, nullable=False, checks=[
             Check(lambda x: x.str.len() > 0, element_wise=False)
         ]),
-        "timestamp": Column(pl.Datetime, nullable=False),
+        "timestamp": Column(datetime, nullable=False),
         "resource": Column(str, nullable=True, checks=[
             Check(lambda x: x.str.len() > 0, element_wise=False, ignore_na=True)
         ]),
