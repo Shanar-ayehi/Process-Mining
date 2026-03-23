@@ -4,6 +4,7 @@ import json
 import yaml
 from dataclasses import dataclass, asdict
 from app.core.logger import get_logger
+from app.core.database import get_db_connection
 
 logger = get_logger()
 
@@ -50,14 +51,16 @@ class HubSpotSchemaConfig:
 class HubSpotConfigManager:
     """Gestore della configurazione HubSpot per massima plasticità."""
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, portal_id: Optional[str] = None):
         """
         Inizializza il gestore della configurazione.
         
         Args:
             config_path: Percorso al file di configurazione (opzionale)
+            portal_id: ID del portale HubSpot per multi-tenancy (opzionale)
         """
         self.config_path = config_path or Path(__file__).parent.parent / "config" / "hubspot_schema.yaml"
+        self.portal_id = portal_id
         self.config = self._load_config()
         
     def _load_config(self) -> HubSpotSchemaConfig:
@@ -145,8 +148,92 @@ class HubSpotConfigManager:
             privacy_fields=["email", "firstname", "lastname"]
         )
     
+    def _init_config_table(self):
+        """Inizializza la tabella hubspot_configs nel database se non esiste."""
+        try:
+            conn = get_db_connection()
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS hubspot_configs (
+                    portal_id VARCHAR(50) PRIMARY KEY,
+                    config_data TEXT NOT NULL,
+                    version VARCHAR(20),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.close()
+            logger.debug("Tabella hubspot_configs inizializzata")
+        except Exception as e:
+            logger.error(f"Errore nell'inizializzazione tabella hubspot_configs: {e}")
+            raise
+    
+    def save_config_to_db(self, config: HubSpotSchemaConfig):
+        """Salva la configurazione nel database SQLite per multi-tenancy."""
+        if not self.portal_id:
+            logger.warning("Portal ID non specificato, skip salvataggio in database")
+            return
+        
+        try:
+            self._init_config_table()
+            
+            # Converte configurazione in JSON
+            config_dict = {
+                "hubspot": {
+                    "version": config.version,
+                    "pipeline_stages": [asdict(stage) for stage in config.stage_mappings],
+                    "data_structure": asdict(config.data_structure),
+                    "custom_properties": config.custom_properties,
+                    "required_properties": config.required_properties,
+                    "privacy_fields": config.privacy_fields
+                }
+            }
+            config_json = json.dumps(config_dict, ensure_ascii=False)
+            
+            # Salva nel database
+            conn = get_db_connection()
+            conn.execute("""
+                INSERT OR REPLACE INTO hubspot_configs (portal_id, config_data, version, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            """, (self.portal_id, config_json, config.version))
+            conn.close()
+            
+            logger.info(f"Configurazione salvata nel database per portal_id: {self.portal_id}")
+            
+        except Exception as e:
+            logger.error(f"Errore nel salvataggio configurazione nel database: {e}")
+            raise
+    
+    def load_config_from_db(self) -> Optional[HubSpotSchemaConfig]:
+        """Carica la configurazione dal database SQLite per multi-tenancy."""
+        if not self.portal_id:
+            logger.warning("Portal ID non specificato, skip caricamento da database")
+            return None
+        
+        try:
+            self._init_config_table()
+            
+            conn = get_db_connection()
+            result = conn.execute("""
+                SELECT config_data FROM hubspot_configs WHERE portal_id = ?
+            """, (self.portal_id,)).fetchone()
+            conn.close()
+            
+            if result:
+                config_json = result[0]
+                config_dict = json.loads(config_json)
+                config = self._dict_to_config(config_dict)
+                logger.info(f"Configurazione caricata dal database per portal_id: {self.portal_id}")
+                return config
+            else:
+                logger.info(f"Nessuna configurazione trovata nel database per portal_id: {self.portal_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Errore nel caricamento configurazione dal database: {e}")
+            return None
+    
     def save_config(self, config: HubSpotSchemaConfig):
-        """Salva la configurazione su file."""
+        """Salva la configurazione su file e nel database."""
         try:
             # Crea directory se non esiste
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -168,6 +255,10 @@ class HubSpotConfigManager:
                 yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True)
             
             logger.info(f"Configurazione salvata in: {self.config_path}")
+            
+            # Salva anche nel database se portal_id è specificato
+            if self.portal_id:
+                self.save_config_to_db(config)
             
         except Exception as e:
             logger.error(f"Errore nel salvataggio configurazione: {e}")

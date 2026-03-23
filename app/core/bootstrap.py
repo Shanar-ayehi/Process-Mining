@@ -21,6 +21,7 @@ from app.core.config import settings
 from app.core.hubspot_config import HubSpotConfigManager, StageMapping, DataStructureConfig
 from app.connectors.hubspot_client import HubSpotClient, HubSpotAPIError
 from app.connectors.hubspot_mapper import HubSpotMapper
+from app.core.database import get_db_connection
 
 logger = get_logger()
 
@@ -440,22 +441,47 @@ class BootstrapManager:
         return validation
     
     async def _save_bootstrap_results(self, bootstrap_result: Dict[str, Any]):
-        """Salva i risultati del bootstrap."""
+        """Salva i risultati del bootstrap nel database."""
         try:
-            bootstrap_dir = settings.data_dir / "bootstrap"
-            bootstrap_dir.mkdir(exist_ok=True)
+            conn = get_db_connection()
             
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"bootstrap_result_{timestamp}.json"
-            filepath = bootstrap_dir / filename
+            # Crea la tabella system_logs se non esiste
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS system_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    log_type VARCHAR(50),
+                    timestamp TIMESTAMP,
+                    success BOOLEAN,
+                    steps_completed TEXT,
+                    warnings TEXT,
+                    errors TEXT,
+                    configuration TEXT,
+                    details TEXT
+                )
+            """)
             
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(bootstrap_result, f, indent=2, ensure_ascii=False)
+            # Prepara i dati per l'inserimento
+            log_type = 'bootstrap'
+            timestamp = bootstrap_result.get('timestamp', datetime.now().isoformat())
+            success = bootstrap_result.get('success', False)
+            steps_completed = json.dumps(bootstrap_result.get('steps', []))
+            warnings = json.dumps(bootstrap_result.get('warnings', []))
+            errors = json.dumps(bootstrap_result.get('errors', []))
+            configuration = json.dumps(bootstrap_result.get('configuration', {}))
+            details = json.dumps(bootstrap_result)
             
-            logger.info(f"Risultati bootstrap salvati in: {filepath}")
+            # Inserisci il log nel database
+            conn.execute("""
+                INSERT INTO system_logs (log_type, timestamp, success, steps_completed, warnings, errors, configuration, details)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (log_type, timestamp, success, steps_completed, warnings, errors, configuration, details))
+            
+            conn.close()
+            
+            logger.info("Risultati bootstrap salvati nel database nella tabella system_logs")
             
         except Exception as e:
-            logger.error(f"Errore nel salvataggio risultati bootstrap: {e}")
+            logger.error(f"Errore nel salvataggio risultati bootstrap nel database: {e}")
 
 # Funzione helper per eseguire il bootstrap
 async def run_bootstrap() -> Dict[str, Any]:

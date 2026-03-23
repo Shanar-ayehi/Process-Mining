@@ -1,8 +1,6 @@
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
 from datetime import datetime
-import polars as pl
 
 from app.services.analytics.feature_engineering import feature_engineering_service
 from app.services.analytics.predictive_models import predictive_models_service
@@ -11,51 +9,36 @@ from app.tasks.jobs_analytics import (
     generate_analytics_report_task, export_analytics_results_task
 )
 from app.core.logger import get_logger
+from app.api.schemas import (
+    FeatureEngineeringRequestSchema, ModelTrainingRequestSchema,
+    PredictionRequestSchema, AnalyticsReportRequestSchema
+)
 
 logger = get_logger()
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
-# Pydantic models
-class FeatureEngineeringRequest(BaseModel):
-    event_log_data: List[Dict[str, Any]]
-    feature_types: List[str] = ["temporal", "frequency", "sequence"]
-    include_advanced_features: bool = True
-
-class ModelTrainingRequest(BaseModel):
-    training_data: List[Dict[str, Any]]
-    target_variable: str
-    model_types: Optional[List[str]] = None
-    hyperparameter_tuning: bool = True
-
-class PredictionRequest(BaseModel):
-    model_id: str
-    input_data: List[Dict[str, Any]]
-    prediction_type: str = "classification"  # classification, regression, clustering
-
-class AnalyticsReportRequest(BaseModel):
-    report_type: str = "comprehensive"  # comprehensive, summary, detailed
-    include_visualizations: bool = True
-    time_range: Optional[Dict[str, str]] = None
-
 # Feature engineering endpoints
 @router.post("/features/engineer")
-async def run_feature_engineering(request: FeatureEngineeringRequest):
+async def run_feature_engineering(request: FeatureEngineeringRequestSchema):
     """
     Esegue feature engineering sui dati.
     """
     try:
-        logger.info(f"Richiesta feature engineering: {len(request.feature_types)} tipi di feature")
+        logger.info(f"Richiesta feature engineering: portal_id={request.portal_id}, {len(request.feature_types)} tipi di feature")
         
         task = run_feature_engineering_task.delay(
-            event_log_data=request.event_log_data,
+            portal_id=request.portal_id,
             feature_types=request.feature_types,
-            include_advanced_features=request.include_advanced_features
+            include_advanced_features=request.include_advanced_features,
+            start_date=request.start_date,
+            end_date=request.end_date
         )
         
         return {
             "task_id": task.id,
             "status": "started",
+            "portal_id": request.portal_id,
             "feature_types": request.feature_types,
             "timestamp": datetime.now().isoformat()
         }
@@ -115,23 +98,26 @@ async def extract_advanced_features(event_log_data: List[Dict[str, Any]]):
 
 # Predictive modeling endpoints
 @router.post("/models/train")
-async def train_predictive_models(request: ModelTrainingRequest):
+async def train_predictive_models(request: ModelTrainingRequestSchema):
     """
     Allena modelli predittivi.
     """
     try:
-        logger.info(f"Richiesta training modelli: {len(request.model_types)} tipi di modello")
+        logger.info(f"Richiesta training modelli: portal_id={request.portal_id}, {len(request.model_types)} tipi di modello")
         
         task = train_predictive_models_task.delay(
-            training_data=request.training_data,
+            portal_id=request.portal_id,
             target_variable=request.target_variable,
             model_types=request.model_types,
-            hyperparameter_tuning=request.hyperparameter_tuning
+            hyperparameter_tuning=request.hyperparameter_tuning,
+            start_date=request.start_date,
+            end_date=request.end_date
         )
         
         return {
             "task_id": task.id,
             "status": "started",
+            "portal_id": request.portal_id,
             "model_types": request.model_types,
             "target_variable": request.target_variable,
             "timestamp": datetime.now().isoformat()
@@ -142,7 +128,7 @@ async def train_predictive_models(request: ModelTrainingRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/models/predict")
-async def make_predictions(request: PredictionRequest):
+async def make_predictions(request: PredictionRequestSchema):
     """
     Esegue predizioni con modello specificato.
     """
@@ -236,7 +222,7 @@ async def get_model_performance(model_id: str):
 
 # Analytics report endpoints
 @router.post("/report/generate")
-async def generate_analytics_report(request: AnalyticsReportRequest):
+async def generate_analytics_report(request: AnalyticsReportRequestSchema):
     """
     Genera report analytics.
     """
@@ -351,7 +337,7 @@ async def get_top_insights():
 
 # Export endpoints
 @router.post("/export/results")
-async def export_analytics_results(request: AnalyticsReportRequest):
+async def export_analytics_results(request: AnalyticsReportRequestSchema):
     """
     Esporta risultati analytics.
     """

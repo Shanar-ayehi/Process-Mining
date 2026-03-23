@@ -1,6 +1,5 @@
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
 from datetime import datetime
 
 from app.services.etl.data_extraction import data_extraction_service
@@ -11,37 +10,18 @@ from app.tasks.etl_task import (
     cleanup_old_data_task, extract_contacts_task, extract_companies_task
 )
 from app.core.logger import get_logger
+from app.api.schemas import (
+    ExtractionRequestSchema, TransformationRequestSchema, PipelineRequestSchema,
+    ScheduleRequestSchema, CleanupRequestSchema
+)
 
 logger = get_logger()
 
 router = APIRouter(prefix="/connector", tags=["Connector"])
 
-# Pydantic models
-class ExtractionRequest(BaseModel):
-    properties_with_history: Optional[List[str]] = None
-    include_contacts: bool = False
-    include_companies: bool = False
-
-class TransformationRequest(BaseModel):
-    deals_data: List[Dict[str, Any]]
-    contacts_data: Optional[List[Dict[str, Any]]] = None
-    companies_data: Optional[List[Dict[str, Any]]] = None
-
-class PipelineRequest(BaseModel):
-    properties_with_history: Optional[List[str]] = None
-    include_contacts: bool = False
-    include_companies: bool = False
-    schedule_interval: Optional[int] = None
-
-class ScheduleRequest(BaseModel):
-    interval_hours: int = 24
-
-class CleanupRequest(BaseModel):
-    retention_days: int = 30
-
 # Extraction endpoints
 @router.post("/extract/deals")
-async def extract_deals(request: ExtractionRequest):
+async def extract_deals(request: ExtractionRequestSchema):
     """
     Estrae deal da HubSpot.
     """
@@ -107,7 +87,7 @@ async def extract_companies():
 
 # Transformation endpoints
 @router.post("/transform/deals")
-async def transform_deals(request: TransformationRequest):
+async def transform_deals(request: TransformationRequestSchema):
     """
     Trasforma deal in event log.
     """
@@ -176,7 +156,7 @@ async def transform_companies(companies_data: List[Dict[str, Any]]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/transform/merge")
-async def merge_sources(request: TransformationRequest):
+async def merge_sources(request: TransformationRequestSchema):
     """
     Fonde dati da multiple sorgenti.
     """
@@ -203,7 +183,7 @@ async def merge_sources(request: TransformationRequest):
 
 # Pipeline endpoints
 @router.post("/pipeline/full")
-async def run_full_pipeline(request: PipelineRequest):
+async def run_full_pipeline(request: PipelineRequestSchema):
     """
     Esegue pipeline ETL completa.
     """
@@ -229,7 +209,7 @@ async def run_full_pipeline(request: PipelineRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/pipeline/schedule")
-async def schedule_extraction(request: ScheduleRequest):
+async def schedule_extraction(request: ScheduleRequestSchema):
     """
     Pianifica estrazione periodica.
     """
@@ -253,7 +233,7 @@ async def schedule_extraction(request: ScheduleRequest):
 
 # Data management endpoints
 @router.post("/data/cleanup")
-async def cleanup_old_data(request: CleanupRequest):
+async def cleanup_old_data(request: CleanupRequestSchema):
     """
     Pulisce dati vecchi.
     """

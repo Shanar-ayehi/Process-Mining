@@ -41,8 +41,8 @@ const ProcessList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
-  // URL del backend (da configurare)
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1'
+  // URL del backend (da configurare per Vite)
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
 
   const fetchProcesses = async () => {
     try {
@@ -157,7 +157,7 @@ const ProcessList: React.FC = () => {
       {/* Stats Summary */}
       <Box mb={3}>
         <Grid container spacing={2}>
-          <Grid size = {{xs:12, sm:4}}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -170,7 +170,7 @@ const ProcessList: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid size = {{xs:12, sm:4}}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -183,7 +183,7 @@ const ProcessList: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid size ={{xs:12, sm:4}}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -202,7 +202,7 @@ const ProcessList: React.FC = () => {
       {/* Process Cards */}
       <Grid container spacing={3}>
         {filteredProcesses.map((process) => (
-          <Grid size ={{xs:12, md:6, lg:4}} key={process.process_id}>
+          <Grid size={{ xs: 12, md: 6, lg: 4 }} key={process.process_id}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>

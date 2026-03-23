@@ -5,7 +5,7 @@ import asyncio
 import aiohttp
 from app.core.logger import get_logger
 from app.core.config import settings
-from app.connectors.hubspot_client_oauth import HubSpotOAuthClient, create_hubspot_client
+from app.connectors.hubspot_client import HubSpotClient, HubSpotAPIError, create_hubspot_client
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.connectors.hubspot_mapper import hubspot_mapper
 from app.core.privacy import privacy_manager
@@ -26,7 +26,7 @@ class DataExtractionService:
         self.db = db
         self.data_dir = settings.raw_data_dir
     
-    async def _get_hubspot_client(self) -> HubSpotOAuthClient:
+    async def _get_hubspot_client(self) -> HubSpotClient:
         """Ottiene un client HubSpot OAuth con sessione database."""
         return await create_hubspot_client(self.db)
     

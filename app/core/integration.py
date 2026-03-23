@@ -18,7 +18,7 @@ from enum import Enum
 from app.core.logger import get_logger
 from app.core.config import settings
 from app.core.bootstrap import bootstrap_manager
-from app.services.etl.reactive_etl import reactive_etl_manager
+from app.tasks.etl_task import monitor_new_files_task
 from app.services.etl.data_extraction import data_extraction_service
 from app.services.etl.data_transformation import data_transformation_service
 from app.services.etl.data_quality import data_quality_service
@@ -549,20 +549,18 @@ class IntegrationManager:
                     'details': 'End-to-end integration test failed'
                 }
             
-            # Test reactive ETL
+            # Test reactive ETL (now using Celery)
             try:
-                # Verifica che il sistema ETL reattivo sia configurato correttamente
-                etl_status = {
-                    'is_running': reactive_etl_manager.is_running,
-                    'jobs_count': len(reactive_etl_manager.get_all_jobs()),
-                    'running_jobs': len(reactive_etl_manager.get_running_jobs()),
-                    'failed_jobs': len(reactive_etl_manager.get_failed_jobs())
-                }
+                # Verifica che il task Celery per il monitoraggio sia disponibile
+                from celery.result import AsyncResult
+                
+                # Testa che il task sia importabile e eseguibile
+                task_result = monitor_new_files_task.delay(raw_data_dir=None, lookback_minutes=1)
                 
                 integration_tests['reactive_etl'] = {
                     'success': True,
-                    'status': etl_status,
-                    'details': 'Reactive ETL test passed'
+                    'task_id': task_result.id,
+                    'details': 'Reactive ETL test passed (using Celery monitor_new_files_task)'
                 }
                 
             except Exception as e:
@@ -649,12 +647,11 @@ class IntegrationManager:
                     self.status = IntegrationStatus.ERROR
                     return False
             
-            # Step 2: Avvia ETL reattivo
+            # Step 2: Avvia monitoraggio ETL reattivo (usando Celery)
             if self.auto_start_etl:
-                logger.info("🔄 Avvio ETL reattivo")
-                # Nota: In un sistema reale, avvieremmo il task asincrono
-                # Per ora, impostiamo solo lo stato
-                reactive_etl_manager.is_running = True
+                logger.info("🔄 Avvio monitoraggio ETL reattivo (Celery)")
+                # Avvia il task di monitoraggio in background
+                monitor_new_files_task.delay(raw_data_dir=None, lookback_minutes=10)
             
             self.status = IntegrationStatus.RUNNING
             logger.info("✅ Sistema integrato avviato con successo")
@@ -675,8 +672,8 @@ class IntegrationManager:
             self.end_time = datetime.now()
             self.status = IntegrationStatus.SHUTDOWN
             
-            # Ferma ETL reattivo
-            reactive_etl_manager.is_running = False
+            # Nota: I task Celery vengono gestiti dal worker
+            # Non c'è bisogno di fermare esplicitamente il task di monitoraggio
             
             logger.info("✅ Sistema integrato arrestato")
             

@@ -7,22 +7,48 @@ from app.tasks.base_task import (
 from app.services.etl.data_quality import data_quality_service
 from app.services.etl.privacy_governance import privacy_governance_service
 from app.core.logger import get_logger
+from app.core.database import load_event_log
 
 logger = get_logger()
 
+def _load_event_log_for_portal(portal_id: str) -> Any:
+    """
+    Carica l'event log per un portal_id specifico.
+    
+    Args:
+        portal_id: ID del portale HubSpot
+        
+    Returns:
+        DataFrame Polars con i dati dell'event log
+        
+    Raises:
+        ValueError: Se non ci sono dati sincronizzati per questo account
+    """
+    table_name = f"event_log_{portal_id}"
+    df = load_event_log(table_name=table_name)
+    
+    if df.is_empty():
+        raise ValueError(f"Nessun dato sincronizzato per questo account (portal_id: {portal_id})")
+    
+    logger.info(f"Caricati {len(df)} record per portal_id: {portal_id}")
+    return df
+
 @dq_task()
-def validate_event_log_schema_task(self, event_log_df: Any) -> Dict[str, Any]:
+def validate_event_log_schema_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task per la validazione schema event log.
     
     Args:
-        event_log_df: DataFrame event log da validare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati validazione schema
     """
     try:
-        logger.info("Inizio task validazione schema event log")
+        logger.info(f"Inizio task validazione schema event log per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         validation_report = data_quality_service.validate_event_log_schema(event_log_df)
         
@@ -47,18 +73,21 @@ def validate_event_log_schema_task(self, event_log_df: Any) -> Dict[str, Any]:
         return create_task_result(success=False, error=str(e))
 
 @dq_task()
-def validate_data_completeness_task(self, event_log_df: Any) -> Dict[str, Any]:
+def validate_data_completeness_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task per la validazione completezza dati.
     
     Args:
-        event_log_df: DataFrame event log da analizzare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati validazione completezza
     """
     try:
-        logger.info("Inizio task validazione completezza dati")
+        logger.info(f"Inizio task validazione completezza dati per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         completeness_report = data_quality_service.validate_data_completeness(event_log_df)
         
@@ -83,18 +112,21 @@ def validate_data_completeness_task(self, event_log_df: Any) -> Dict[str, Any]:
         return create_task_result(success=False, error=str(e))
 
 @dq_task()
-def validate_data_consistency_task(self, event_log_df: Any) -> Dict[str, Any]:
+def validate_data_consistency_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task per la validazione consistenza dati.
     
     Args:
-        event_log_df: DataFrame event log da analizzare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati validazione consistenza
     """
     try:
-        logger.info("Inizio task validazione consistenza dati")
+        logger.info(f"Inizio task validazione consistenza dati per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         consistency_report = data_quality_service.validate_data_consistency(event_log_df)
         
@@ -119,18 +151,21 @@ def validate_data_consistency_task(self, event_log_df: Any) -> Dict[str, Any]:
         return create_task_result(success=False, error=str(e))
 
 @dq_task()
-def generate_data_quality_report_task(self, event_log_df: Any) -> Dict[str, Any]:
+def generate_data_quality_report_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task per la generazione report qualità dati completo.
     
     Args:
-        event_log_df: DataFrame event log da analizzare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati report qualità
     """
     try:
-        logger.info("Inizio task generazione report qualità dati")
+        logger.info(f"Inizio task generazione report qualità dati per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         quality_report = data_quality_service.generate_data_quality_report(event_log_df)
         
@@ -157,20 +192,23 @@ def generate_data_quality_report_task(self, event_log_df: Any) -> Dict[str, Any]
         return create_task_result(success=False, error=str(e))
 
 @dq_task()
-def anonymize_dataframe_task(self, event_log_df: Any, 
+def anonymize_dataframe_task(self, portal_id: str, 
                            sensitive_columns: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     Task per l'anonimizzazione DataFrame.
     
     Args:
-        event_log_df: DataFrame da anonimizzare
+        portal_id: ID del portale HubSpot
         sensitive_columns: Colonne sensibili (opzionale)
         
     Returns:
         Dizionario con risultati anonimizzazione
     """
     try:
-        logger.info("Inizio task anonimizzazione DataFrame")
+        logger.info(f"Inizio task anonimizzazione DataFrame per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         anonymized_df = privacy_governance_service.anonymize_dataframe(
             event_log_df, sensitive_columns
@@ -196,18 +234,21 @@ def anonymize_dataframe_task(self, event_log_df: Any,
         return create_task_result(success=False, error=str(e))
 
 @dq_task()
-def validate_gdpr_compliance_task(self, event_log_df: Any) -> Dict[str, Any]:
+def validate_gdpr_compliance_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task per la validazione compliance GDPR.
     
     Args:
-        event_log_df: DataFrame da validare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati validazione GDPR
     """
     try:
-        logger.info("Inizio task validazione compliance GDPR")
+        logger.info(f"Inizio task validazione compliance GDPR per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         gdpr_report = privacy_governance_service.validate_gdpr_compliance(event_log_df)
         
@@ -300,18 +341,21 @@ def generate_privacy_report_task(self) -> Dict[str, Any]:
         return create_task_result(success=False, error=str(e))
 
 @dq_task()
-def run_full_data_quality_pipeline_task(self, event_log_df: Any) -> Dict[str, Any]:
+def run_full_data_quality_pipeline_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task orchestratore per l'intera pipeline data quality.
     
     Args:
-        event_log_df: DataFrame event log da analizzare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati pipeline qualità
     """
     try:
-        logger.info("Inizio pipeline data quality completa")
+        logger.info(f"Inizio pipeline data quality completa per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         # Esegui tutti i controlli qualità
         schema_result = data_quality_service.validate_event_log_schema(event_log_df)

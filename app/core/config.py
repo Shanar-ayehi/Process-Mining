@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     hubspot_client_secret: Optional[str] = None
     hubspot_redirect_uri: Optional[str] = None
     
+    # API
+    api_base_url: str = "http://localhost:8000"
+    API_BASE_URL: str = "http://localhost:8000"
+    
     # Celery
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
@@ -53,7 +57,7 @@ class Settings(BaseSettings):
     
     # Bootstrap
     auto_bootstrap: bool = True  # Abilita il bootstrap automatico
-    bootstrap_on_startup: bool = True  # Esegui bootstrap all'avvio
+    bootstrap_on_startup: bool = False  # Esegui bootstrap all'avvio (disabilitato per evitare errori event loop)
     
     class Config:
         env_file = ".env"

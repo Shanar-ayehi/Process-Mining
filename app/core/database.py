@@ -14,9 +14,20 @@ def get_db_connection():
     Path("data").mkdir(parents=True, exist_ok=True)
     return duckdb.connect(DB_PATH)
 
-def save_event_log(df: pl.DataFrame, table_name: str = "event_log"):
-    """Salva un Polars DataFrame in una tabella DuckDB."""
-    logger.info(f"Salvataggio di {len(df)} righe nella tabella '{table_name}'...")
+def save_event_log(df: pl.DataFrame, portal_id: str, table_name: str = None):
+    """
+    Salva un Polars DataFrame in una tabella DuckDB con isolamento multi-tenant.
+    
+    Args:
+        df: DataFrame Polars da salvare
+        portal_id: ID del portale HubSpot (obbligatorio per multi-tenancy)
+        table_name: Nome personalizzato della tabella (opzionale, default: event_log_{portal_id})
+    """
+    # Genera nome tabella dinamico basato su portal_id se non specificato
+    if table_name is None:
+        table_name = f"event_log_{portal_id}"
+    
+    logger.info(f"Salvataggio di {len(df)} righe nella tabella '{table_name}' per portal_id '{portal_id}'...")
     
     conn = get_db_connection()
     try:
@@ -27,23 +38,37 @@ def save_event_log(df: pl.DataFrame, table_name: str = "event_log"):
         # Per semplicità ora la sovrascriviamo:
         conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM df")
         
-        logger.info("Salvataggio completato con successo.")
+        logger.info(f"Salvataggio completato con successo per portal_id '{portal_id}'.")
     except Exception as e:
-        logger.error(f"Errore durante il salvataggio nel DB: {e}")
+        logger.error(f"Errore durante il salvataggio nel DB per portal_id '{portal_id}': {e}")
         raise
     finally:
         conn.close()
 
-def load_event_log(table_name: str = "event_log") -> pl.DataFrame:
-    """Carica la tabella dal database e la restituisce come Polars DataFrame."""
+def load_event_log(portal_id: str, table_name: str = None) -> pl.DataFrame:
+    """
+    Carica la tabella dal database con isolamento multi-tenant.
+    
+    Args:
+        portal_id: ID del portale HubSpot (obbligatorio per multi-tenancy)
+        table_name: Nome personalizzato della tabella (opzionale, default: event_log_{portal_id})
+        
+    Returns:
+        Polars DataFrame con i dati del portale specificato
+    """
+    # Genera nome tabella dinamico basato su portal_id se non specificato
+    if table_name is None:
+        table_name = f"event_log_{portal_id}"
+    
     conn = get_db_connection()
     try:
-        logger.info(f"Lettura della tabella '{table_name}' dal DB...")
+        logger.info(f"Lettura della tabella '{table_name}' per portal_id '{portal_id}' dal DB...")
         # Leggiamo con SQL e convertiamo direttamente in Polars (.pl())
         df = conn.sql(f"SELECT * FROM {table_name}").pl()
+        logger.info(f"Lettura completata: {len(df)} righe caricate per portal_id '{portal_id}'.")
         return df
     except Exception as e:
-        logger.error(f"Errore durante la lettura dal DB (la tabella esiste?): {e}")
+        logger.error(f"Errore durante la lettura dal DB per portal_id '{portal_id}' (la tabella esiste?): {e}")
         return pl.DataFrame()
     finally:
         conn.close()

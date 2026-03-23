@@ -92,25 +92,37 @@ class TaskStatusSchema(BaseModel):
 # Mining schemas
 class MiningRequestSchema(BaseModel):
     """Schema per richieste mining."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     algorithm: ProcessAlgorithm = Field(ProcessAlgorithm.DFG, description="Algoritmo di discovery")
     parameters: Optional[Dict[str, Any]] = Field(None, description="Parametri specifici")
     model_type: ConformanceModelType = Field(ConformanceModelType.DFG, description="Tipo modello")
     calculate_kpis: bool = Field(True, description="Calcolare KPI")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class ConformanceRequestSchema(BaseModel):
     """Schema per richieste conformance."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     model_type: ConformanceModelType = Field(ConformanceModelType.DFG, description="Tipo modello")
     theoretical_model: Optional[Dict[str, Any]] = Field(None, description="Modello teorico")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class KPIRequestSchema(BaseModel):
     """Schema per richieste KPI."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     time_window: str = Field("1d", description="Finestra temporale")
     calculate_resource_kpis: bool = Field(True, description="Calcolare KPI risorse")
     calculate_activity_kpis: bool = Field(True, description="Calcolare KPI attività")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class VariantsRequestSchema(BaseModel):
     """Schema per richieste varianti."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     min_frequency_threshold: float = Field(0.05, description="Soglia frequenza minima")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class DiscoveryResultSchema(BaseModel):
     """Schema per risultati discovery."""
@@ -139,16 +151,21 @@ class ExtractionRequestSchema(BaseModel):
 
 class TransformationRequestSchema(BaseModel):
     """Schema per richieste trasformazione."""
-    deals_data: List[Dict[str, Any]] = Field(..., description="Dati deal")
-    contacts_data: Optional[List[Dict[str, Any]]] = Field(None, description="Dati contatti")
-    companies_data: Optional[List[Dict[str, Any]]] = Field(None, description="Dati aziende")
+    portal_id: str = Field(..., description="ID del portale HubSpot")
+    include_contacts: bool = Field(False, description="Includere contatti")
+    include_companies: bool = Field(False, description="Includere aziende")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class PipelineRequestSchema(BaseModel):
     """Schema per richieste pipeline."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     properties_with_history: Optional[List[str]] = Field(None, description="Proprietà con cronologia")
     include_contacts: bool = Field(False, description="Includere contatti")
     include_companies: bool = Field(False, description="Includere aziende")
     schedule_interval: Optional[int] = Field(None, description="Intervallo pianificazione")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class ScheduleRequestSchema(BaseModel):
     """Schema per richieste pianificazione."""
@@ -161,15 +178,19 @@ class CleanupRequestSchema(BaseModel):
 # Data Quality schemas
 class ValidationRequestSchema(BaseModel):
     """Schema per richieste validazione."""
-    event_log_data: List[Dict[str, Any]] = Field(..., description="Dati event log")
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     validate_schema: bool = Field(True, description="Validare schema")
     validate_completeness: bool = Field(True, description="Validare completezza")
     validate_consistency: bool = Field(True, description="Validare consistenza")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class PrivacyRequestSchema(BaseModel):
     """Schema per richieste privacy."""
-    event_log_data: List[Dict[str, Any]] = Field(..., description="Dati event log")
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     sensitive_columns: Optional[List[str]] = Field(None, description="Colonne sensibili")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class RetentionRequestSchema(BaseModel):
     """Schema per richieste retention."""
@@ -194,28 +215,37 @@ class QualityReportSchema(BaseModel):
 # Analytics schemas
 class FeatureEngineeringRequestSchema(BaseModel):
     """Schema per richieste feature engineering."""
-    event_log_data: List[Dict[str, Any]] = Field(..., description="Dati event log")
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     feature_types: List[str] = Field(["temporal", "frequency", "sequence"], description="Tipi di feature")
     include_advanced_features: bool = Field(True, description="Includere features avanzate")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class ModelTrainingRequestSchema(BaseModel):
     """Schema per richieste training modelli."""
-    training_data: List[Dict[str, Any]] = Field(..., description="Dati training")
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     target_variable: str = Field(..., description="Variabile target")
     model_types: List[ModelType] = Field([ModelType.RANDOM_FOREST], description="Tipi di modello")
     hyperparameter_tuning: bool = Field(True, description="Ottimizzazione iperparametri")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class PredictionRequestSchema(BaseModel):
     """Schema per richieste predizioni."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     model_id: str = Field(..., description="ID modello")
-    input_data: List[Dict[str, Any]] = Field(..., description="Dati input")
     prediction_type: PredictionType = Field(PredictionType.CLASSIFICATION, description="Tipo predizione")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class AnalyticsReportRequestSchema(BaseModel):
     """Schema per richieste report analytics."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     report_type: ReportType = Field(ReportType.COMPREHENSIVE, description="Tipo report")
     include_visualizations: bool = Field(True, description="Includere visualizzazioni")
     time_range: Optional[Dict[str, str]] = Field(None, description="Range temporale")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class ModelPerformanceSchema(BaseModel):
     """Schema per performance modelli."""
@@ -235,8 +265,10 @@ class AnalyticsSummarySchema(BaseModel):
 # Integration schemas
 class IntegrationRequestSchema(BaseModel):
     """Schema per richieste integrazione."""
-    mining_results: Dict[str, Any] = Field(..., description="Risultati mining")
+    portal_id: str = Field(..., description="ID del portale HubSpot")
     sync_options: Optional[Dict[str, Any]] = Field(None, description="Opzioni sincronizzazione")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
 
 class SyncResultSchema(BaseModel):
     """Schema per risultati sincronizzazione."""
@@ -291,6 +323,21 @@ class PredictiveModelsConfigSchema(BaseModel):
     model_types: Dict[str, Any] = Field(..., description="Configurazione tipi modello")
     hyperparameter_tuning: Dict[str, Any] = Field(..., description="Configurazione tuning")
     model_evaluation: Dict[str, Any] = Field(..., description="Configurazione valutazione")
+
+# Discovery schemas
+class DiscoveryRequestSchema(BaseModel):
+    """Schema per richieste discovery."""
+    sample_size: Optional[int] = Field(None, description="Dimensione campione")
+    save_results: bool = Field(True, description="Salvare risultati")
+    apply_config: bool = Field(False, description="Applicare configurazione")
+
+class ConfigUpdateRequestSchema(BaseModel):
+    """Schema per richieste aggiornamento configurazione."""
+    stage_mappings: Optional[List[Dict[str, Any]]] = Field(None, description="Mapping fasi pipeline")
+    data_structure: Optional[Dict[str, str]] = Field(None, description="Struttura dati")
+    custom_properties: Optional[List[str]] = Field(None, description="Proprietà personalizzate")
+    required_properties: Optional[List[str]] = Field(None, description="Proprietà richieste")
+    privacy_fields: Optional[List[str]] = Field(None, description="Campi privacy")
 
 # Response schemas
 class APIResponseSchema(BaseModel):

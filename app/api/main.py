@@ -2,9 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes_connector import router as connector_router
 from app.api.routes_mining import router as mining_router
-from app.api.routes_analytics import router as analytics_router
+# from app.api.routes_analytics import router as analytics_router  # DISABILITATO: dipendenze mancanti
 from app.api.routes_dq import router as dq_router
-from app.api.routes_discovery import router as discovery_router
 from app.api.routes_process_management import router as process_management_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes_external_cards import router as external_cards_router
@@ -31,9 +30,8 @@ app.add_middleware(
 # Include routers
 app.include_router(connector_router, prefix="/api/v1", tags=["Connector"])
 app.include_router(mining_router, prefix="/api/v1", tags=["Mining"])
-app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])
+# app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])  # DISABILITATO: dipendenze mancanti
 app.include_router(dq_router, prefix="/api/v1", tags=["Data Quality"])
-app.include_router(discovery_router, prefix="/api/v1", tags=["Discovery"])
 app.include_router(process_management_router, prefix="/api/v1", tags=["Process Management"])
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(external_cards_router, prefix="/api/v1", tags=["External Cards"])
@@ -48,9 +46,9 @@ async def root():
         "endpoints": {
             "connector": "/api/v1/connector",
             "mining": "/api/v1/mining", 
-            "analytics": "/api/v1/analytics",
+            # TODO: Ripristinare analytics quando le dipendenze saranno disponibili
+            # "analytics": "/api/v1/analytics",
             "data_quality": "/api/v1/dq",
-            "discovery": "/api/v1/discovery",
             "external_cards": "/api/v1/external-cards"
         }
     }

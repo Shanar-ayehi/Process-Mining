@@ -1,6 +1,5 @@
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
 from datetime import datetime
 
 from app.services.etl.data_quality import data_quality_service
@@ -14,35 +13,17 @@ from app.tasks.dq_task import (
     cleanup_data_quality_logs_task
 )
 from app.core.logger import get_logger
+from app.api.schemas import (
+    ValidationRequestSchema, PrivacyRequestSchema, RetentionRequestSchema, AuditRequestSchema
+)
 
 logger = get_logger()
 
 router = APIRouter(prefix="/data-quality", tags=["Data Quality"])
 
-# Pydantic models
-class ValidationRequest(BaseModel):
-    event_log_data: List[Dict[str, Any]]
-    validate_schema: bool = True
-    validate_completeness: bool = True
-    validate_consistency: bool = True
-
-class PrivacyRequest(BaseModel):
-    event_log_data: List[Dict[str, Any]]
-    sensitive_columns: Optional[List[str]] = None
-
-class RetentionRequest(BaseModel):
-    data_dir: Optional[str] = None
-    retention_days: int = 30
-
-class AuditRequest(BaseModel):
-    operation: str
-    user_id: Optional[str] = None
-    data_description: Optional[str] = None
-    sensitive_data_accessed: bool = False
-
 # Schema validation endpoints
 @router.post("/validate/schema")
-async def validate_event_log_schema(request: ValidationRequest):
+async def validate_event_log_schema(request: ValidationRequestSchema):
     """
     Valida lo schema dell'event log.
     """
@@ -65,7 +46,7 @@ async def validate_event_log_schema(request: ValidationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/validate/completeness")
-async def validate_data_completeness(request: ValidationRequest):
+async def validate_data_completeness(request: ValidationRequestSchema):
     """
     Valida la completezza dei dati.
     """
@@ -88,7 +69,7 @@ async def validate_data_completeness(request: ValidationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/validate/consistency")
-async def validate_data_consistency(request: ValidationRequest):
+async def validate_data_consistency(request: ValidationRequestSchema):
     """
     Valida la consistenza dei dati.
     """
@@ -112,7 +93,7 @@ async def validate_data_consistency(request: ValidationRequest):
 
 # Privacy and GDPR endpoints
 @router.post("/privacy/anonymize")
-async def anonymize_dataframe(request: PrivacyRequest):
+async def anonymize_dataframe(request: PrivacyRequestSchema):
     """
     Anonimizza il DataFrame.
     """
@@ -136,7 +117,7 @@ async def anonymize_dataframe(request: PrivacyRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/privacy/gdpr-compliance")
-async def validate_gdpr_compliance(request: PrivacyRequest):
+async def validate_gdpr_compliance(request: PrivacyRequestSchema):
     """
     Valida la compliance GDPR.
     """
@@ -159,7 +140,7 @@ async def validate_gdpr_compliance(request: PrivacyRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/privacy/retention")
-async def apply_data_retention(request: RetentionRequest):
+async def apply_data_retention(request: RetentionRequestSchema):
     """
     Applica la policy di retention dati.
     """
@@ -205,7 +186,7 @@ async def generate_privacy_report():
 
 # Data quality pipeline endpoints
 @router.post("/pipeline/full")
-async def run_full_data_quality_pipeline(request: ValidationRequest):
+async def run_full_data_quality_pipeline(request: ValidationRequestSchema):
     """
     Esegue pipeline qualità dati completa.
     """
@@ -228,7 +209,7 @@ async def run_full_data_quality_pipeline(request: ValidationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/report/generate")
-async def generate_data_quality_report(request: ValidationRequest):
+async def generate_data_quality_report(request: ValidationRequestSchema):
     """
     Genera report qualità dati completo.
     """
@@ -252,7 +233,7 @@ async def generate_data_quality_report(request: ValidationRequest):
 
 # Audit endpoints
 @router.post("/audit/access")
-async def audit_data_access(request: AuditRequest):
+async def audit_data_access(request: AuditRequestSchema):
     """
     Registra audit accesso dati.
     """

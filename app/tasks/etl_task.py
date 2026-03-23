@@ -9,8 +9,31 @@ from app.services.etl.data_transformation import data_transformation_service
 from app.services.etl.data_quality import data_quality_service
 from app.services.etl.privacy_governance import privacy_governance_service
 from app.core.logger import get_logger
+from app.core.database import load_event_log
 
 logger = get_logger()
+
+def _load_event_log_for_portal(portal_id: str) -> Any:
+    """
+    Carica l'event log per un portal_id specifico.
+    
+    Args:
+        portal_id: ID del portale HubSpot
+        
+    Returns:
+        DataFrame Polars con i dati dell'event log
+        
+    Raises:
+        ValueError: Se non ci sono dati sincronizzati per questo account
+    """
+    table_name = f"event_log_{portal_id}"
+    df = load_event_log(table_name=table_name)
+    
+    if df.is_empty():
+        raise ValueError(f"Nessun dato sincronizzato per questo account (portal_id: {portal_id})")
+    
+    logger.info(f"Caricati {len(df)} record per portal_id: {portal_id}")
+    return df
 
 @etl_task()
 def extract_deals_task(self, properties_with_history: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -82,18 +105,21 @@ def transform_deals_task(self, deals_data: List[Dict[str, Any]]) -> Dict[str, An
         return create_task_result(success=False, error=str(e))
 
 @etl_task()
-def validate_data_quality_task(self, event_log_df: Any) -> Dict[str, Any]:
+def validate_data_quality_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task per la validazione qualità dati.
     
     Args:
-        event_log_df: DataFrame event log da validare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati validazione
     """
     try:
-        logger.info("Inizio task validazione qualità dati")
+        logger.info(f"Inizio task validazione qualità dati per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         # Validazione qualità dati
         quality_report = data_quality_service.generate_data_quality_report(event_log_df)
@@ -116,18 +142,21 @@ def validate_data_quality_task(self, event_log_df: Any) -> Dict[str, Any]:
         return create_task_result(success=False, error=str(e))
 
 @etl_task()
-def apply_privacy_governance_task(self, event_log_df: Any) -> Dict[str, Any]:
+def apply_privacy_governance_task(self, portal_id: str) -> Dict[str, Any]:
     """
     Task per l'applicazione governance privacy.
     
     Args:
-        event_log_df: DataFrame event log da processare
+        portal_id: ID del portale HubSpot
         
     Returns:
         Dizionario con risultati governance
     """
     try:
-        logger.info("Inizio task governance privacy")
+        logger.info(f"Inizio task governance privacy per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         # Applica pseudonimizzazione
         anonymized_df = privacy_governance_service.anonymize_dataframe(event_log_df)
@@ -153,14 +182,14 @@ def apply_privacy_governance_task(self, event_log_df: Any) -> Dict[str, Any]:
         return create_task_result(success=False, error=str(e))
 
 @etl_task()
-def merge_sources_task(self, event_log_df: Any, 
+def merge_sources_task(self, portal_id: str, 
                       contacts_data: Optional[List[Dict[str, Any]]] = None,
                       companies_data: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """
     Task per la fusione dati da multiple sorgenti.
     
     Args:
-        event_log_df: Event log principale
+        portal_id: ID del portale HubSpot
         contacts_data: Dati contatti (opzionale)
         companies_data: Dati aziende (opzionale)
         
@@ -168,7 +197,10 @@ def merge_sources_task(self, event_log_df: Any,
         Dizionario con risultati fusione
     """
     try:
-        logger.info("Inizio task fusione sorgenti")
+        logger.info(f"Inizio task fusione sorgenti per portal_id: {portal_id}")
+        
+        # Carica i dati dal database
+        event_log_df = _load_event_log_for_portal(portal_id)
         
         # Trasforma entità se presenti
         contacts_entities = None
@@ -448,6 +480,92 @@ def extract_companies_task(self) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Errore nel task estrazione aziende: {e}")
+        handle_task_error(self.request.id, e)
+        return create_task_result(success=False, error=str(e))
+
+
+@etl_task()
+def monitor_new_files_task(self, raw_data_dir: Optional[str] = None, 
+                          lookback_minutes: int = 10) -> Dict[str, Any]:
+    """
+    Task per il monitoraggio di nuovi file nella directory raw.
+    
+    Args:
+        raw_data_dir: Directory da monitorare (opzionale, usa settings.raw_data_dir se None)
+        lookback_minutes: Minuti di lookback per considerare un file come "nuovo"
+        
+    Returns:
+        Dizionario con risultati monitoraggio
+    """
+    try:
+        from pathlib import Path
+        from datetime import datetime, timedelta
+        from app.core.config import settings
+        
+        logger.info(f"Inizio monitoraggio nuovi file (lookback: {lookback_minutes} minuti)")
+        
+        # Determina la directory da monitorare
+        if raw_data_dir:
+            monitor_dir = Path(raw_data_dir)
+        else:
+            monitor_dir = settings.raw_data_dir
+        
+        if not monitor_dir.exists():
+            logger.warning(f"Directory di monitoraggio non esistente: {monitor_dir}")
+            return create_task_result(
+                success=True,
+                data={
+                    'new_files_found': 0,
+                    'files_processed': [],
+                    'message': f'Directory {monitor_dir} non esistente'
+                }
+            )
+        
+        # Calcola il cutoff time
+        cutoff_time = datetime.now() - timedelta(minutes=lookback_minutes)
+        
+        # Trova file modificati recentemente
+        new_files = []
+        for file_path in monitor_dir.glob("**/*.json"):
+            file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+            if file_mtime > cutoff_time:
+                new_files.append(file_path)
+        
+        if new_files:
+            logger.info(f"Trovati {len(new_files)} nuovi file, avvio pipeline ETL")
+            
+            # Avvia pipeline ETL per ogni nuovo file
+            # Per ora avviamo una pipeline generica, ma potremmo personalizzare
+            pipeline_result = run_full_etl_pipeline.delay(
+                properties_with_history=None,
+                include_contacts=False,
+                include_companies=False
+            )
+            
+            result = create_task_result(
+                success=True,
+                data={
+                    'new_files_found': len(new_files),
+                    'files_processed': [str(f) for f in new_files],
+                    'pipeline_id': pipeline_result.id,
+                    'message': f'Pipeline ETL avviata per {len(new_files)} nuovi file'
+                }
+            )
+        else:
+            logger.info("Nessun nuovo file trovato")
+            result = create_task_result(
+                success=True,
+                data={
+                    'new_files_found': 0,
+                    'files_processed': [],
+                    'message': 'Nessun nuovo file trovato'
+                }
+            )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore nel monitoraggio nuovi file: {e}")
         handle_task_error(self.request.id, e)
         return create_task_result(success=False, error=str(e))
 

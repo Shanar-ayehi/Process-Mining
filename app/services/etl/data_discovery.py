@@ -16,9 +16,9 @@ class DataStructureAnalyzer:
         Inizializza l'analizzatore della struttura dati.
         
         Args:
-            hubspot_client: Client HubSpot (se None, ne crea uno nuovo)
+            hubspot_client: Client HubSpot (se None, non viene creato automaticamente)
         """
-        self.hubspot_client = hubspot_client or HubSpotClient()
+        self.hubspot_client = hubspot_client  # Non creare istanza automatica
     
     def analyze_deal_structure(self, sample_size: int = 10) -> Dict[str, Any]:
         """
@@ -411,4 +411,7 @@ class AutoDiscoveryService:
         """Genera timestamp per i nomi file."""
         from datetime import datetime
         return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# Istanza globale del servizio di auto-discovery
+auto_discovery_service = AutoDiscoveryService()
 

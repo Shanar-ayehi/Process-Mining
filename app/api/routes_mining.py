@@ -1,11 +1,13 @@
 from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
 from datetime import datetime
+import json
 
 from app.services.mining.discovery_service import discovery_service
 from app.services.mining.conformance_service import conformance_service
 from app.services.mining.kpi_service import kpi_service
+from app.services.etl.data_discovery import auto_discovery_service
+from app.core.hubspot_config import hubspot_config_manager
 from app.tasks.mining_task import (
     discover_process_model_task, discover_variants_task, discover_performance_dfg_task,
     check_conformance_task, detect_deviations_task, calculate_process_kpis_task,
@@ -13,33 +15,18 @@ from app.tasks.mining_task import (
     run_full_mining_analysis_task, generate_mining_report_task
 )
 from app.core.logger import get_logger
+from app.api.schemas import (
+    MiningRequestSchema, ConformanceRequestSchema, KPIRequestSchema, VariantsRequestSchema,
+    DiscoveryRequestSchema, ConfigUpdateRequestSchema
+)
 
 logger = get_logger()
 
 router = APIRouter(prefix="/mining", tags=["Mining"])
 
-# Pydantic models
-class MiningRequest(BaseModel):
-    algorithm: str = "dfg"
-    parameters: Optional[Dict[str, Any]] = None
-    model_type: str = "dfg"
-    calculate_kpis: bool = True
-
-class ConformanceRequest(BaseModel):
-    model_type: str = "dfg"
-    theoretical_model: Optional[Dict[str, Any]] = None
-
-class KPIRequest(BaseModel):
-    time_window: str = "1d"
-    calculate_resource_kpis: bool = True
-    calculate_activity_kpis: bool = True
-
-class VariantsRequest(BaseModel):
-    min_frequency_threshold: float = 0.05
-
 # Discovery endpoints
 @router.post("/discover/process-model")
-async def discover_process_model(request: MiningRequest):
+async def discover_process_model(request: MiningRequestSchema):
     """
     Scopre il modello di processo con algoritmo specificato.
     """
@@ -65,7 +52,7 @@ async def discover_process_model(request: MiningRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/discover/variants")
-async def discover_process_variants(request: VariantsRequest):
+async def discover_process_variants(request: VariantsRequestSchema):
     """
     Scopre le varianti del processo.
     """
@@ -112,7 +99,7 @@ async def discover_performance_dfg():
 
 # Conformance checking endpoints
 @router.post("/conformance/check")
-async def check_conformance(request: ConformanceRequest):
+async def check_conformance(request: ConformanceRequestSchema):
     """
     Esegue conformance checking.
     """
@@ -227,7 +214,7 @@ async def calculate_activity_kpis():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/kpis/trend")
-async def calculate_trend_kpis(request: KPIRequest):
+async def calculate_trend_kpis(request: KPIRequestSchema):
     """
     Calcola KPI di trend temporale.
     """
@@ -252,7 +239,7 @@ async def calculate_trend_kpis(request: KPIRequest):
 
 # Analysis endpoints
 @router.post("/analysis/full")
-async def run_full_mining_analysis(request: MiningRequest):
+async def run_full_mining_analysis(request: MiningRequestSchema):
     """
     Esegue analisi mining completa.
     """
@@ -395,4 +382,307 @@ async def cancel_task(task_id: str):
         
     except Exception as e:
         logger.error(f"Errore cancellazione task mining {task_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# =============================================================================
+# HUBSPOT CONFIGURATION ENDPOINTS (ex routes_discovery)
+# =============================================================================
+
+@router.post("/config/run")
+async def run_discovery(request: DiscoveryRequestSchema):
+    """
+    Esegue la discovery automatica della configurazione HubSpot.
+    """
+    try:
+        logger.info("Richiesta discovery automatica")
+        
+        # Esegui discovery
+        results = auto_discovery_service.run_full_discovery()
+        
+        if not results.get('success', False):
+            raise HTTPException(status_code=500, detail=f"Discovery fallita: {results.get('error', 'Errore sconosciuto')}")
+        
+        # Salva risultati se richiesto
+        if request.save_results:
+            filepath = auto_discovery_service.save_discovery_results(results)
+            results['saved_to'] = str(filepath)
+        
+        # Applica configurazione se richiesto
+        if request.apply_config:
+            applied = auto_discovery_service.apply_discovery_config(results)
+            results['config_applied'] = applied
+        
+        results['request_params'] = {
+            'sample_size': request.sample_size,
+            'save_results': request.save_results,
+            'apply_config': request.apply_config
+        }
+        
+        logger.info("Discovery automatica completata")
+        return results
+        
+    except Exception as e:
+        logger.error(f"Errore discovery automatica: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/config/current")
+async def get_current_config():
+    """
+    Ottiene la configurazione HubSpot corrente.
+    """
+    try:
+        config = hubspot_config_manager.config
+        validation = hubspot_config_manager.validate_config()
+        
+        config_data = {
+            "config": {
+                "version": config.version,
+                "stage_mappings": [stage.__dict__ for stage in config.stage_mappings],
+                "data_structure": config.data_structure.__dict__,
+                "custom_properties": config.custom_properties,
+                "required_properties": config.required_properties,
+                "privacy_fields": config.privacy_fields
+            },
+            "validation": validation,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return config_data
+        
+    except Exception as e:
+        logger.error(f"Errore recupero configurazione: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/config/update")
+async def update_config(request: ConfigUpdateRequestSchema):
+    """
+    Aggiorna la configurazione HubSpot.
+    """
+    try:
+        logger.info("Richiesta aggiornamento configurazione")
+        
+        # Aggiorna stage mappings se forniti
+        if request.stage_mappings:
+            for stage_data in request.stage_mappings:
+                hubspot_config_manager.add_stage_mapping(
+                    stage_data['stage_id'],
+                    stage_data['display_name'],
+                    stage_data['order'],
+                    stage_data.get('is_final', False)
+                )
+        
+        # Aggiorna data structure se fornito
+        if request.data_structure:
+            hubspot_config_manager.update_data_structure(**request.data_structure)
+        
+        # Aggiorna proprietà personalizzate
+        if request.custom_properties:
+            for prop in request.custom_properties:
+                hubspot_config_manager.add_custom_property(prop)
+        
+        # Aggiorna proprietà richieste
+        if request.required_properties:
+            for prop in request.required_properties:
+                if prop not in hubspot_config_manager.config.required_properties:
+                    hubspot_config_manager.config.required_properties.append(prop)
+        
+        # Aggiorna campi privacy
+        if request.privacy_fields:
+            for field in request.privacy_fields:
+                if field not in hubspot_config_manager.config.privacy_fields:
+                    hubspot_config_manager.config.privacy_fields.append(field)
+        
+        # Salva configurazione aggiornata
+        hubspot_config_manager.save_config(hubspot_config_manager.config)
+        
+        validation = hubspot_config_manager.validate_config()
+        
+        result = {
+            "success": True,
+            "message": "Configurazione aggiornata con successo",
+            "validation": validation,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        logger.info("Configurazione aggiornata")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore aggiornamento configurazione: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/config/validate")
+async def validate_config():
+    """
+    Valida la configurazione HubSpot corrente.
+    """
+    try:
+        validation = hubspot_config_manager.validate_config()
+        
+        result = {
+            "validation": validation,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore validazione configurazione: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/config/stages")
+async def get_stage_mappings():
+    """
+    Ottiene tutte le fasi della pipeline configurate.
+    """
+    try:
+        stage_mappings = hubspot_config_manager.config.stage_mappings
+        stages_data = []
+        
+        for stage in stage_mappings:
+            stages_data.append({
+                "stage_id": stage.stage_id,
+                "display_name": stage.display_name,
+                "order": stage.order,
+                "is_final": stage.is_final
+            })
+        
+        result = {
+            "stages": stages_data,
+            "count": len(stages_data),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore recupero fasi pipeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/config/properties")
+async def get_properties():
+    """
+    Ottiene le proprietà configurate.
+    """
+    try:
+        config = hubspot_config_manager.config
+        
+        properties_data = {
+            "custom_properties": config.custom_properties,
+            "required_properties": config.required_properties,
+            "privacy_fields": config.privacy_fields,
+            "data_structure": config.data_structure.__dict__,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return properties_data
+        
+    except Exception as e:
+        logger.error(f"Errore recupero proprietà: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/config/stages/add")
+async def add_stage_mapping(stage_id: str, display_name: str, order: int, is_final: bool = False):
+    """
+    Aggiunge una nuova fase della pipeline.
+    """
+    try:
+        logger.info(f"Aggiunta fase pipeline: {stage_id} -> {display_name}")
+        
+        hubspot_config_manager.add_stage_mapping(stage_id, display_name, order, is_final)
+        
+        # Salva configurazione
+        hubspot_config_manager.save_config(hubspot_config_manager.config)
+        
+        result = {
+            "success": True,
+            "message": f"Fase {stage_id} aggiunta con successo",
+            "stage": {
+                "stage_id": stage_id,
+                "display_name": display_name,
+                "order": order,
+                "is_final": is_final
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore aggiunta fase pipeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/config/stages/{stage_id}")
+async def remove_stage_mapping(stage_id: str):
+    """
+    Rimuove una fase della pipeline.
+    """
+    try:
+        logger.info(f"Rimozione fase pipeline: {stage_id}")
+        
+        # Filtra la fase da rimuovere
+        hubspot_config_manager.config.stage_mappings = [
+            stage for stage in hubspot_config_manager.config.stage_mappings
+            if stage.stage_id != stage_id
+        ]
+        
+        # Salva configurazione
+        hubspot_config_manager.save_config(hubspot_config_manager.config)
+        
+        result = {
+            "success": True,
+            "message": f"Fase {stage_id} rimossa con successo",
+            "removed_stage_id": stage_id,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore rimozione fase pipeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/config/data-structure")
+async def get_data_structure():
+    """
+    Ottiene la struttura dati configurata.
+    """
+    try:
+        data_structure = hubspot_config_manager.get_data_structure()
+        
+        structure_data = {
+            "data_structure": data_structure.__dict__,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return structure_data
+        
+    except Exception as e:
+        logger.error(f"Errore recupero struttura dati: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/config/data-structure")
+async def update_data_structure(data_structure: Dict[str, str]):
+    """
+    Aggiorna la struttura dati.
+    """
+    try:
+        logger.info("Aggiornamento struttura dati")
+        
+        hubspot_config_manager.update_data_structure(**data_structure)
+        
+        # Salva configurazione
+        hubspot_config_manager.save_config(hubspot_config_manager.config)
+        
+        result = {
+            "success": True,
+            "message": "Struttura dati aggiornata con successo",
+            "data_structure": data_structure,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore aggiornamento struttura dati: {e}")
         raise HTTPException(status_code=500, detail=str(e))

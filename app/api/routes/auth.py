@@ -23,7 +23,7 @@ from app.core.security import create_access_token
 from app.models.auth import Token, User
 from app.schemas.auth import AuthResponse, TokenRefreshRequest
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 

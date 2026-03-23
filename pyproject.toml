@@ -32,6 +32,11 @@ requests = "*"
 tenacity = "*"
 loguru = "*"
 aiohttp = "^3.13.3"
+aiofiles = "^25.1.0"
+
+# SECURITY & AUTHENTICATION
+python-jose = {extras = ["cryptography"], version = "*"}
+passlib = {extras = ["bcrypt"], version = "*"}
 
 [tool.poetry.group.dq.dependencies]
 # DATA QUALITY & GOVERNANCE

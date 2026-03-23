@@ -206,3 +206,6 @@ data/
 
 # Cache Python
 *__pycache__/
+
+# Frontend 
+frontend/node_modules/
