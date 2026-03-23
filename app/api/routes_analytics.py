@@ -25,7 +25,7 @@ class FeatureEngineeringRequest(BaseModel):
 class ModelTrainingRequest(BaseModel):
     training_data: List[Dict[str, Any]]
     target_variable: str
-    model_types: List[str] = ["random_forest", "gradient_boosting"]
+    model_types: Optional[List[str]] = None
     hyperparameter_tuning: bool = True
 
 class PredictionRequest(BaseModel):

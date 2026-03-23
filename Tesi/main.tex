@@ -1,0 +1,808 @@
+\documentclass[12pt, a4paper]{report}
+
+% --- PACCHETTI PER LA FORMATTAZIONE (VADEMECUM) ---
+\usepackage[utf8]{inputenc}
+\usepackage{csquotes}
+\usepackage[T1]{fontenc}
+\usepackage[italian]{babel}
+
+% 1. Font Times New Roman (Richiesto: Times New Roman, Arial o Calibri)
+\usepackage{mathptmx} 
+
+% 2. Margini (Richiesto: Sup 3cm, Inf 2.5cm, Dx 2.5cm, Sx 3.5cm)
+\usepackage[top=3cm, bottom=2.5cm, left=3.5cm, right=2.5cm]{geometry}
+
+% 3. Interlinea 1.5
+\usepackage{setspace}
+\onehalfspacing 
+
+% Pacchetto per includere il PDF del frontespizio originale
+\usepackage{pdfpages} 
+
+% Disabilita la rientranza dei paragrafi (opzionale, per pulizia)
+\setlength{\parindent}{0pt}
+
+% --- PACCHETTO PER PERSONALIZZARE L'INDICE ---
+\usepackage{tocloft}
+
+% 1. Applica il \vspace{0.5cm} tra i capitoli principali (1, 2, 3...)
+\setlength{\cftbeforechapskip}{0.5cm}
+
+% Assicurati che non ci sia spazio extra tra le singole sezioni (1.1, 1.2...)
+\setlength{\cftbeforesecskip}{0cm} 
+
+% 2. Applica l'\hspace*{1cm} di rientro per le sezioni (sottocapitoli)
+% Sintassi: \cftsetindents{livello}{rientro dal margine}{spazio per il numero}
+\cftsetindents{sec}{1cm}{1.25cm}
+
+% (Opzionale) Se avrai anche sottosezioni come 1.1.1, imposta il loro rientro
+\cftsetindents{subsec}{2.25cm}{1.5cm}
+
+% --- GESTIONE BIBLIOGRAFIA ---
+\usepackage[backend=biber, style=authoryear, sorting=none]{biblatex}
+\addbibresource{bibliografia.bib}
+
+% Aggiungi questo comando per forzare la virgola (Autore, Data)
+\DeclareDelimFormat{nameyeardelim}{\addcomma\space}
+
+% --- RIFERIMENTI INTERATTIVI ---
+% hyperref deve essere solitamente l'ultimo pacchetto caricato!
+\usepackage[colorlinks=true, citecolor=blue, linkcolor=blue, urlcolor=blue]{hyperref}
+
+\begin{document}
+
+% ------------------------------------------------------------------
+% 1. FRONTESPIZIO
+% ------------------------------------------------------------------
+% Istruzione: Salva il tuo file Word "SCUDERI FRANCESCO.doc" come PDF.
+% Rinominalo "frontespizio.pdf" e caricalo nella cartella del progetto LaTeX.
+% Questo comando lo inserirà come prima pagina, identico all'originale.
+\includepdf[pages=-]{frontespizio.pdf}
+
+% ------------------------------------------------------------------
+% 2. CORPO DEL DOCUMENTO (PROPOSTA PROJECT WORK)
+% ------------------------------------------------------------------
+
+% Titolo della sezione (non numerato)
+\begin{center}
+    \textbf{\Large PROPOSTA DI PROJECT WORK}
+\end{center}
+\vspace{1cm}
+
+\textbf{Titolo del Project Work:}\\
+Process Mining e CRM: Analisi Data-Driven per l'Ottimizzazione dei Flussi Aziendali
+
+\vspace{1cm}
+
+\textbf{Descrizione dell'Argomento:}\\
+Il progetto ha l'obiettivo di applicare la metodologia del Process Mining ai dati aziendali per analizzare e ottimizzare i processi operativi. Partendo dai dati storici presenti nel CRM, il lavoro si focalizza sulla ricostruzione automatica dei flussi reali tramite algoritmi di discovery. L'elaborazione permette di confrontare i processi teorici con quelli effettivi, identificando colli di bottiglia, deviazioni e inefficienze. Il risultato finale è un'analisi quantitativa che fornisce all'azienda strumenti concreti per il monitoraggio delle performance e il decision making strategico.
+
+\vspace{2cm}
+
+
+% ------------------------------------------------------------------
+% 3. INDICE DELLA TESI (AUTOMATICO E CLICCABILE)
+% ------------------------------------------------------------------
+\cleardoublepage
+\pdfbookmark{\contentsname}{indice} % Aggiunge l'indice ai segnalibri laterali del PDF
+\tableofcontents
+\newpage
+
+% ------------------------------------------------------------------
+% CAPITOLO 1: INTRODUZIONE
+% ------------------------------------------------------------------
+\chapter*{INTRODUZIONE}
+\addcontentsline{toc}{chapter}{INTRODUZIONE}
+
+\section*{Contesto aziendale e obiettivi}
+Nell'attuale panorama economico, la digitalizzazione e l'automazione dei processi non rappresentano più un mero vantaggio competitivo, bensì un prerequisito tecnologico fondamentale per garantire la sopravvivenza e la scalabilità aziendale. Le moderne organizzazioni fanno ampio affidamento su sistemi di \textit{Customer Relationship Management} (CRM), come HubSpot, per tracciare le interazioni con la clientela, gestire i contatti e monitorare il ciclo di vita delle opportunità commerciali (Lead-to-Cash). 
+
+Tuttavia, all'interno dei contesti aziendali emerge frequentemente un divario significativo tra i processi "ideali", così come sono stati formalmente disegnati a livello manageriale, e i processi "reali", ovvero l'esatta sequenza di azioni quotidianamente eseguite dagli operatori sul campo. I dati inseriti all'interno del CRM, per quanto strutturati e abbondanti, tendono a fornire una fotografia statica dello stato di un \textit{deal}: è possibile determinare con precisione se un'opportunità commerciale è stata vinta o persa, ma risulta complesso, se non impossibile tramite i classici strumenti di \textit{Business Intelligence}, comprendere le dinamiche sottostanti. Raramente i sistemi nativi chiariscono \textit{come} si è arrivati a un determinato risultato, calcolano il tempo di attraversamento effettivo tra le fasi o evidenziano la presenza di deviazioni non previste (es. ritorni a fasi precedenti o salti di procedure di qualificazione).
+
+L'obiettivo primario del presente progetto di tesi è colmare questa lacuna analitica, applicando la disciplina del \textit{Process Mining} ai dati transazionali estratti dal CRM aziendale. Il lavoro si è concentrato sullo sviluppo architetturale e logico di un \textbf{Motore di Process Intelligence}, ovvero una piattaforma software capace di estrarre la cronologia esatta dei cambi di fase direttamente dalle API di HubSpot \footcite{hubspot_api}, validare la qualità e l'integrità del dato e applicare algoritmi di \textit{Process Discovery} per ricostruire automaticamente i veri flussi di lavoro aziendali. In questo modo, si fornisce all'organizzazione uno strumento di \textit{Decision Support System} per passare da un approccio decisionale basato su intuizioni ed euristiche a uno strettamente \textit{Data-Driven}.
+
+\section*{Analisi dei fabbisogni}
+L'esigenza di ingegnerizzare un sistema di analisi di processo è emersa da una fase preliminare di \textit{Requirement Analysis}, che ha evidenziato una serie di criticità nella gestione corrente dei flussi informativi e commerciali. Nello specifico, sono stati individuati i seguenti bisogni:
+
+\begin{itemize}
+    \item \textbf{Visibilità limitata dell'efficienza operativa:} Mentre il management possiede un'ottima visibilità sui KPI di output (es. tasso di conversione, fatturato generato), mancano all'appello metriche avanzate relative all'efficienza interna, quali il \textit{Lead Time} (tempo totale di attraversamento di una pratica) e il \textit{Cycle Time} (tempo effettivo di lavorazione).
+    \item \textbf{Identificazione dei colli di bottiglia (\textit{Bottlenecks}):} All'interno di iter commerciali per deal "su misura" o ad alta complessità, risulta complesso individuare in modo sistematico le fasi specifiche in cui le pratiche tendono a ristagnare, generando ritardi nel \textit{time-to-market}.
+    \item \textbf{Conformità operativa (\textit{Conformance}):} Vi è la necessità di misurare lo scostamento tra le regole aziendali e la realtà operativa. È imperativo verificare se gli operatori seguano le procedure standard o se applichino \textit{workaround} non documentati (es. spostamento repentino di un deal dalla prima all'ultima fase) che compromettono la \textit{Data Quality} generale del CRM.
+    \item \textbf{Gestione di grandi volumi di dati e UX:} Per garantire l'adozione del sistema da parte dell'utente finale, è richiesto lo sviluppo di un'architettura software asincrona. L'elaborazione degli algoritmi matematici sui grafi non deve bloccare l'interfaccia utente (UI), garantendo tempi di reattività minimi e una \textit{User Experience} ottimale.
+\end{itemize}
+
+\section*{Metodologia e strumenti di lavoro}
+La metodologia scientifica adottata per l'analisi dei dati si basa sul framework teorico del \textit{Process Mining Manifesto} \footcite{vandaalst}, il quale suddivide l'estrazione di valore dagli \textit{Event Log} in tre pilastri analitici:
+
+\begin{enumerate}
+    \item \textbf{Process Discovery:} Estrazione di modelli grafici orientati a partire da dati grezzi non etichettati, senza la necessità di modelli teorici a priori. In questa fase sono impiegati algoritmi generativi per mappare l'effettivo percorso eseguito dai task nel CRM.
+    \item \textbf{Conformance Checking:} Fase di validazione che confronta il modello "as-is" ricavato dai dati con il modello procedurale "to-be" configurato nelle pipeline di HubSpot, al fine di tracciare variazioni e misurarne l'incidenza.
+    \item \textbf{Enhancement:} L'impiego delle evidenze raccolte per arricchire, estendere o ottimizzare il modello esistente, integrando funzionalità di intelligenza artificiale o analisi predittiva.
+\end{enumerate}
+
+Sebbene il framework teorico originale contempli l'Enhancement come ottimizzazione diretta del software monitorato, nel perimetro di questo lavoro di tesi l'Enhancement viene declinato in un'ottica \textit{Data-Driven}. I risultati del mining vengono tradotti in raccomandazioni strategiche, calcolo di KPI avanzati, \textit{Predictive Scoring} dei deal e procedure di \textit{Reverse ETL} (estrazione, trasformazione e ricaricamento dei dati arricchiti all'interno del CRM nativo).
+
+Per l'implementazione pratica è stata scelta una metodologia di sviluppo di tipo \textit{Agile}. Il ciclo di vita del software è stato gestito tramite iterazioni incrementali focalizzate dapprima sulla solidità della pipeline di \textit{Data Engineering} (Backend ed ETL), per poi spostarsi verso l'analisi matematica (Mining) ed infine verso l'integrazione visiva (Frontend) e l'applicazione di logiche di \textit{Machine Learning}.
+
+\section*{Risultati implementati}
+A conclusione dei cicli di sviluppo, il progetto ha portato alla realizzazione di una piattaforma software \textit{End-to-End} completa, caratterizzata dai seguenti traguardi tecnici:
+
+\subsection*{Architettura Backend ed Estrazione (ETL)}
+È stata progettata un'architettura a microservizi basata sul framework \textbf{FastAPI}, accoppiata a \textbf{Celery} e \textbf{Redis} per l'esecuzione asincrona dei task più onerosi. La pipeline ETL (Extract, Transform, Load) è stata ottimizzata per interrogare HubSpot aggirando i rate limit, paginando le chiamate e convertendo i complessi file JSON in \textit{Event Log} relazionali tramite la libreria ad altissime prestazioni \textbf{Polars}. È stata prestata massima attenzione al regolamento GDPR \footcite{gdpr} integrando un modulo di \textit{Privacy by Design} capace di pseudonimizzare automaticamente i dati sensibili (come le email degli operatori) tramite hashing crittografico, applicando contestualmente logiche di \textit{Data Retention}.
+
+\subsection*{Process Mining Engine e Data Quality}
+Il cuore analitico del sistema si basa sulla libreria Python \textbf{PM4Py} \footcite{pm4py}, attraverso la quale sono stati generati \textit{Directly-Follows Graph} (DFG) per esplorare visivamente il flusso commerciale. Il sistema elabora KPI complessi, quali i tempi medi di transizione e il \textit{Rework Rate} (il tasso di attività ripetute all'interno della stessa pratica). Prima di ogni analisi, il dataset viene sottoposto a rigorosi controlli di \textit{Data Quality} per verificarne completezza, correttezza dei tipi e assenza di anomalie temporali, avvalendosi del framework \textbf{Pandera}.
+
+\subsection*{Interfaccia Utente e Analitica Predittiva}
+Il layer di presentazione dei dati è stato sviluppato mediante \textbf{Streamlit}, creando una Dashboard dinamica divisa per moduli funzionali. Gli utenti finali possono esplorare le metriche di performance, individuare i "colli di bottiglia" visualmente, e accedere ad una sezione dedicata agli \textit{Insights Predittivi}. In tale modulo, appositi modelli di \textit{Machine Learning} (es. Random Forest) processano le feature ingegnerizzate dagli event log per assegnare uno "score" di rischio o di probabilità di chiusura positiva ai deal attualmente aperti.
+
+\subsection*{Reverse ETL e Integrazione HubSpot}
+A completamento del flusso informativo, il sistema non si limita alla visualizzazione passiva dei dati, ma li reintegra in HubSpot. I KPI calcolati e gli score predittivi vengono riscritti nei record originali del CRM attraverso tecniche di \textbf{Reverse ETL}, permettendo ai commerciali di visualizzare lo stato di salute del loro processo di vendita direttamente nel loro ambiente di lavoro quotidiano, abilitando di fatto la creazione di \textit{workflow} e \textit{alert} automatizzati.
+
+% ------------------------------------------------------------------
+% CAPITOLO 2: TECNOLOGIE E ARCHITETTURA DATI
+% ------------------------------------------------------------------
+\chapter{TECNOLOGIE E ARCHITETTURA DATI}
+
+\section{Fondamenti di Process Mining}
+Il Process Mining è una disciplina analitica che si colloca all'intersezione tra la \textit{Data Science} e il \textit{Business Process Management} (BPM). A differenza della modellazione di processo tradizionale, che si basa su interviste e documentazione cartacea (spesso soggetta a bias cognitivi o non aggiornata), il Process Mining si fonda su un approccio \textit{fact-based}, estraendo la conoscenza direttamente dai sistemi informativi aziendali \footcite{vandaalst}.
+
+Il punto di partenza imprescindibile per qualsiasi analisi di questa natura è l'\textbf{Event Log} (registro degli eventi). Affinché i dati grezzi estratti da un CRM possano essere trasformati in un \textit{Event Log} validabile e utilizzabile, ogni riga del dataset deve contenere rigorosamente almeno tre attributi fondamentali:
+
+\begin{itemize}
+    \item \textbf{Case ID (Identificativo del caso):} L'identificativo univoco dell'istanza di processo tracciata end-to-end. Nel contesto di un sistema di vendita, corrisponde solitamente all'ID del \textit{Deal} o dell'opportunità commerciale su HubSpot.
+    \item \textbf{Activity (Attività):} L'azione o la transizione di stato eseguita all'interno dell'istanza (es. "Cambio stato da New a Qualified", oppure "Inviata proposta").
+    \item \textbf{Timestamp (Marca temporale):} Il momento esatto in cui l'evento è stato registrato dal sistema, essenziale per calcolare i tempi di attraversamento e ordinare sequenzialmente le attività.
+\end{itemize}
+
+Nel contesto specifico di questo progetto, la sfida tecnica principale è consistita nella ricostruzione della cronologia esatta degli eventi a partire dalle API del CRM. Sistemi come HubSpot, di default, espongono tramite endpoint standard solamente lo stato \textit{attuale} dell'oggetto, sovrascrivendo la storia pregressa. Per superare tale ostacolo, l'architettura implementata sfrutta in modo intensivo endpoint avanzati. Nello specifico, interrogando i parametri di tipo \texttt{propertiesWithHistory}, il sistema estrae un array cronologico di tutti i passaggi di stato di una specifica proprietà (come la \textit{dealstage}). Tale operazione permette di tradurre un record statico di un database documentale in una traccia di processo dinamica, perfettamente compatibile con i requisiti del Process Mining.
+
+\section{Stack tecnologico e librerie utilizzate}
+Per rispondere a severi requisiti di \textit{performance}, asincronicità e scalabilità, è stato selezionato uno stack tecnologico basato interamente sull'ecosistema Python (versione 3.12). L'architettura è stata segmentata in layer funzionali, ciascuno gestito da librerie \textit{state-of-the-art} nel campo del \textit{Data Engineering} e dell'Intelligenza Artificiale.
+
+\subsection{Linguaggio e Core (Python, PM4Py)}
+Python è stato scelto come linguaggio core per via della sua incontrastata leadership nell'ambito della \textit{Data Analysis} e dell'enorme supporto della community per l'elaborazione dei dati. La modellazione matematica dei flussi è demandata interamente alla libreria \textbf{PM4Py} (Process Mining for Python) [3]. 
+
+PM4Py rappresenta il vero e proprio motore di calcolo del progetto. Esso fornisce implementazioni efficienti degli algoritmi di \textit{Discovery} (come Alpha Miner, Heuristics Miner e Inductive Miner) impiegati per la generazione del \textit{Directly-Follows Graph} (DFG), ovvero la rappresentazione visiva dei percorsi effettuati dai \textit{Case ID}. Inoltre, PM4Py offre moduli avanzati per il \textit{Conformance Checking}, permettendo il calcolo vettoriale di metriche quali la \textit{Fitness} (misura di quanto il modello riproduca accuratamente il comportamento registrato nei log) e la \textit{Precision} (misura di quanto il modello eviti di consentire comportamenti non presenti nei log) \footcite{pm4py}.
+
+\subsection{Backend e Gestione Asincrona (FastAPI, Redis, Celery)}
+Una delle criticità infrastrutturali maggiori nella progettazione di pipeline analitiche è la latenza. Le API verso il CRM e l'esecuzione degli algoritmi sui grafi introducono tempi di attesa incompatibili con l'interazione in tempo reale. Un'architettura sincrona tradizionale avrebbe causato il blocco (blocking) dell'interfaccia utente durante le operazioni di \textit{fetch} dei dati o di ricalcolo dei modelli, offrendo un'esperienza insoddisfacente.
+
+Per ovviare a questa limitazione, l'intero \textit{backend} è stato disaccoppiato ricorrendo ad un paradigma asincrono:
+\begin{itemize}
+    \item \textbf{FastAPI:} Utilizzato per l'esposizione degli endpoint REST. Sfrutta internamente framework asincroni, garantendo altissime prestazioni nella gestione concorrente di richieste web multiple.
+    \item \textbf{Celery:} Implementato come sistema di \textit{task queue} distribuito. Ad esso viene demandata l'esecuzione in background (\textit{worker}) di tutti i carichi di lavoro intensivi: dal rate limiting delle chiamate API in fase di estrazione ETL, fino alla generazione computazionale dei modelli PM4Py.
+    \item \textbf{Redis:} Strumento \textit{in-memory} impiegato nel duplice ruolo di \textit{Message Broker} per Celery e di sistema di \textit{caching}. Redis coordina i messaggi scambiati tra le API e i worker, memorizzando gli esiti delle elaborazioni.
+\end{itemize}
+
+A titolo di esempio, la gestione del routing delle code di lavoro è stata nettamente suddivisa nel codice sorgente, garantendo che i task di Data Quality non rallentino quelli di estrazione ETL, come si evince dalle configurazioni di inizializzazione di Celery:
+
+\begin{verbatim}
+celery_app.conf.update(
+    task_routes={
+        'app.tasks.etl_task.*': {'queue': 'etl'},
+        'app.tasks.mining_task.*': {'queue': 'mining'},
+        'app.tasks.dq_task.*': {'queue': 'data_quality'},
+        'app.tasks.integration_task.*': {'queue': 'integration'},
+    }
+)
+\end{verbatim}
+
+\subsection{Storage, Analisi e Governance (DuckDB, Polars, Pandera)}
+Per la trasformazione e la manipolazione strutturale dei dati in memoria (fase di \textit{Transformation}), si è optato per \textbf{Polars}. Sfruttando un motore scritto in Rust e basato sul formato \textit{Apache Arrow}, Polars esegue le operazioni in modalità \textit{multithreading} e tramite query "lazy" ottimizzate, offrendo prestazioni e un'efficienza nella gestione della memoria nettamente superiori rispetto al tradizionale approccio \textit{single-threaded} di Pandas.
+
+La persistenza analitica locale è stata implementata tramite \textbf{DuckDB}. Questo sistema RDBMS \textit{in-process}, orientato al mondo OLAP (Online Analytical Processing), permette di eseguire interrogazioni SQL complesse direttamente sui file Parquet o sulle variabili in memoria generate da Polars, senza l'overhead tipico di un database server client-server come PostgreSQL. Il salvataggio dei dataframe avviene in modo diretto e integrato, riducendo drasticamente il codice boilerplate, come visibile nella funzione di gestione del database:
+
+\begin{verbatim}
+def save_event_log(df: pl.DataFrame, table_name: str = "event_log"):
+    conn = get_db_connection()
+    try:
+        conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM df")
+    except Exception as e:
+        logger.error(f"Errore durante il salvataggio nel DB: {e}")
+        raise
+    finally:
+        conn.close()
+\end{verbatim}
+
+In parallelo, le operations di \textit{Data Governance} e \textit{Data Quality} sono monitorate attraverso \textbf{Pandera} \footcite{bantilan2020}. Questo framework di \textit{schema validation} intercetta i dataframe in ingresso verificandone la conformità a specifiche rigorose: tipo di dato corretto, presenza ineludibile dei campi obbligatori, formato coerente dei timestamp e identificazione precoce di anomalie che potrebbero inficiare le analisi del Process Mining.
+
+\subsection{Frontend Dashboard (Streamlit)}
+Per l'interfaccia utente e l'esposizione interattiva degli analytics è stato selezionato \textbf{Streamlit}. Si tratta di un framework capace di convertire script Python in dashboard applicative in modo istantaneo, azzerando la complessità legata allo sviluppo frontend puro (HTML/JS/CSS). Tramite Streamlit sono state realizzate diverse aree funzionali:
+\begin{itemize}
+    \item \textit{Dashboard Processo:} Per la visualizzazione del \textit{Sankey diagram} e dei colli di bottiglia.
+    \item \textit{Qualità Dati:} Per il monitoraggio in tempo reale dei punteggi di completezza e validità tramite metriche Pandera.
+    \item \textit{Insights Predittivi:} Per esporre le probabilità di conversione generate dai modelli algoritmici.
+\end{itemize}
+
+\subsection{Gestione Dipendenze e Containerizzazione (Poetry, Docker)}
+A garanzia della riproducibilità ambientale e della stabilità infrastrutturale, la gestione dei pacchetti software è stata affidata a \textbf{Poetry}. Rispetto al tradizionale strumento \texttt{pip}, Poetry implementa un risolutore di dipendenze deterministico basato su \textit{lockfile} (\texttt{poetry.lock}). Tale approccio ha evitato categoricamente l'insorgenza di conflitti di versione tra l'ecosistema web (FastAPI, Uvicorn) e l'ecosistema matematico-scientifico (PM4Py, Polars, scikit-learn).
+
+Infine, l'intera applicazione è stata virtualizzata utilizzando \textbf{Docker} e \textbf{Docker Compose}. La containerizzazione isola i vari microservizi: un container dedicato ospita il server API, un secondo \textit{container image} avvia Redis, e un terzo isola i worker asincroni di Celery, permettendo al sistema di scalare orizzontalmente con facilità in ambienti di produzione.
+
+% ------------------------------------------------------------------
+% CAPITOLO 3: PIPELINE ETL E QUALITÀ DEL DATO
+% ------------------------------------------------------------------
+\chapter{PIPELINE ETL E QUALITÀ DEL DATO}
+
+La fondatezza e l'affidabilità di qualsiasi analisi di \textit{Process Mining} dipendono intrinsecamente dalla qualità e dalla strutturazione dei dati in ingresso. In ambito aziendale, i dati grezzi risiedono all'interno del CRM sotto forma di documenti non relazionali, inadatti ad essere processati direttamente dagli algoritmi matematici sui grafi. Per colmare tale divario, è stata ingegnerizzata una complessa pipeline ETL (\textit{Extract, Transform, Load}), progettata per estrarre la storia transazionale, modellarla in un formato tabellare standardizzato e garantirne l'integrità attraverso rigide regole di validazione.
+
+\section{Estrazione dati e resilienza (HubSpot API e Tenacity)}
+La fase di estrazione (Extraction) comunica con l'ecosistema HubSpot tramite le API REST ufficiali \footcite{hubspot_api}. I sistemi CRM in \textit{cloud}, tuttavia, impongono limitazioni rigorose sul numero di richieste effettuabili in un dato lasso di tempo (\textit{Rate Limiting}), al fine di preservare la stabilità dei propri server. Quando tali limiti vengono superati, le API restituiscono un codice di errore HTTP 429 (\textit{Too Many Requests}), che in un'architettura software naif causerebbe il fallimento dell'intero processo di ingestione.
+
+Per garantire la massima resilienza e \textit{fault-tolerance} del sistema, il client HTTP sviluppato in Python è stato avvolto da meccanismi di \textit{Exponential Backoff} e \textit{Retry} automatici, delegati alla libreria \textbf{Tenacity}. Invece di interrompere l'esecuzione, il sistema intercetta le eccezioni di rete e i codici 429, mettendo il \textit{worker} in pausa per un intervallo di tempo che cresce esponenzialmente ad ogni tentativo fallito, fino al raggiungimento di una soglia massima. 
+
+Di seguito viene riportato lo stralcio di codice relativo al \textit{core} del connettore HubSpot, in cui si evidenzia l'implementazione del decoratore di retry:
+
+\begin{verbatim}
+@retry(
+    retry=retry_if_exception_type((requests.exceptions.RequestException, RateLimitError)),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=4, max=60),
+    reraise=True
+)
+def _make_request(self, method: str, endpoint: str, params: Dict = None, 
+                  data: Dict = None) -> Dict:
+    
+    current_time = time.time()
+    if current_time - self.last_request_time < self.rate_limit_delay:
+        time.sleep(self.rate_limit_delay - (current_time - self.last_request_time))
+    
+    url = f"{self.base_url}{endpoint}"
+    
+    try:
+        response = requests.request(
+            method=method, url=url, headers=self.headers,
+            params=params, json=data, timeout=30
+        )
+        
+        self.request_count += 1
+        self.last_request_time = time.time()
+        
+        if response.status_code == 429:
+            logger.warning(f"Rate limit raggiunto. Tentativo {self.request_count}")
+            raise RateLimitError("HubSpot rate limit exceeded")
+            
+        return response.json()
+        
+    except requests.exceptions.Timeout:
+        logger.error("Timeout nella richiesta a HubSpot")
+        raise
+\end{verbatim}
+
+In aggiunta alla gestione degli errori, il connettore implementa algoritmi di \textit{paginazione} automatica tramite i token \texttt{after}, garantendo la capacità di scaricare iterativamente dataset composti da decine di migliaia di \textit{deal} senza saturare la memoria RAM del container Docker.
+
+\section{Trasformazione e appiattimento dei log (Flattening)}
+Il payload JSON restituito da HubSpot presenta una struttura documentale profondamente annidata, che descrive lo stato del \textit{Deal} e le sue proprietà. Per estrarre gli eventi storici necessari al Process Mining, il sistema interroga l'endpoint richiedendo esplicitamente il parametro \texttt{propertiesWithHistory} per il campo \texttt{dealstage}.
+
+La fase di trasformazione (Transformation) ha il compito di eseguire il \textit{flattening} del JSON, disaggregando l'albero gerarchico in una serie di record piatti (\textit{flat rows}). Ogni qualvolta il sistema rileva uno storico di cambi di fase per un singolo deal, genera \textit{N} record distinti, corrispondenti agli \textit{N} passaggi di stato registrati. 
+
+Questa logica di mappatura associa dinamicamente gli ID grezzi delle fasi di HubSpot (es. "appointmentscheduled") in stringhe leggibili ("Appuntamento Pianificato"). Inoltre, si occupa del parsing e della normalizzazione dei timestamp, convertendoli dallo standard ISO 8601 a oggetti \texttt{Datetime} manipolabili matematicamente. Il processo è incapsulato nella logica del mapper:
+
+\begin{verbatim}
+def map_deal_to_event_log(self, deal_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    events = []
+    deal_id = deal_data.get('id')
+    history_data = deal_data.get('propertiesWithHistory', {})
+    stage_history = history_data.get('dealstage', [])
+    
+    # Ordinamento cronologico degli eventi per singolo caso
+    stage_history.sort(key=lambda x: x.get('timestamp', 0))
+    
+    for record in stage_history:
+        stage_value = record.get('value', '')
+        activity_name = self.stage_mapping.get(
+            stage_value.lower(), 
+            f"Fase Sconosciuta: {stage_value}"
+        )
+        
+        timestamp = self._parse_timestamp(record.get('timestamp'))
+        source_id = record.get('sourceId', 'System')
+        
+        event = {
+            "case_id": deal_id,
+            "activity": activity_name,
+            "timestamp": timestamp,
+            "resource": privacy_manager.hash_email(source_id),
+            "amount": deal_data.get('properties', {}).get('amount', ''),
+            "pipeline": deal_data.get('properties', {}).get('pipeline', '')
+        }
+        events.append(event)
+    
+    return events
+\end{verbatim}
+
+% La sezione 3.3 sulla Privacy by Design verrà inserita qui nello Stage successivo.
+
+\section{Data Quality e validazione tramite Pandera}
+Nelle scienze dei dati vige l'assioma \textit{"Garbage In, Garbage Out"} (GIGO): modelli algoritmici sofisticati produrranno inevitabilmente risultati fallaci se alimentati con dati corrotti. Per prevenire questa eventualità, la pipeline ETL è stata dotata di un "casello di controllo" matematico implementato tramite \textbf{Pandera} [5], un framework avanzato per la validazione di schemi su dataframe \textit{Polars} e \textit{Pandas}.
+
+La classe \texttt{EventLogSchema} definisce un contratto tipizzato a cui i dati estratti devono sottostare in modo ineludibile prima di essere persistiti nel \textit{Data Lake} (in formato \texttt{.parquet}) e passati al motore di PM4Py. Vengono eseguiti tre livelli di validazione:
+\begin{enumerate}
+    \item \textbf{Schema Validation:} Verifica della presenza di tutte le colonne obbligatorie (\texttt{case\_id}, \texttt{activity}, \texttt{timestamp}) e coercizione dei tipi di dato (\textit{type casting}).
+    \item \textbf{Completeness Check:} Controllo dell'assenza di valori nulli o stringhe vuote nei campi chiave, essenziali per la topologia del grafo.
+    \item \textbf{Consistency Check:} Analisi logico-temporale degli eventi, volta a rintracciare record duplicati o sequenze di timestamp invertite, che comporterebbero la creazione di loop impossibili nel modello di processo.
+\end{enumerate}
+
+La sintassi dichiarativa di Pandera consente di definire espressioni lambda per la validazione a livello di singolo elemento, come riportato nella configurazione dello schema di progetto:
+
+\begin{verbatim}
+class EventLogSchema:
+    schema = DataFrameSchema({
+        "case_id": Column(str, nullable=False, checks=[
+            Check(lambda x: x.str.len() > 0, element_wise=False)
+        ]),
+        "activity": Column(str, nullable=False, checks=[
+            Check(lambda x: x.str.len() > 0, element_wise=False)
+        ]),
+        "timestamp": Column(pl.Datetime, nullable=False),
+        "resource": Column(str, nullable=True),
+        "amount": Column(str, nullable=True),
+        "environment": Column(str, nullable=True)
+    }, strict=False)
+\end{verbatim}
+
+Qualora l'event log non superi i controlli, il sistema intercetta l'eccezione, blocca il caricamento nel database analitico DuckDB e registra l'anomalia negli appositi file di log e sulle dashboard utente, garantendo che le analisi a valle si basino esclusivamente su dataset \textit{gold-standard}.
+
+\section{Implementazione della Privacy by Design (GDPR Compliance)}
+L'estrazione e l'elaborazione di dati transazionali da un CRM aziendale comportano inevitabilmente il trattamento di informazioni personali, quali gli indirizzi email degli operatori commerciali, i nomi dei clienti e i dettagli di contatto. Al fine di allineare l'architettura software alle disposizioni del Regolamento Generale sulla Protezione dei Dati (GDPR) [4], il sistema è stato ingegnerizzato seguendo il principio della \textit{Privacy by Design}. 
+
+Tale paradigma impone che la tutela della riservatezza sia integrata nativamente nell'architettura del sistema informativo fin dalle prime fasi di progettazione, e non aggiunta come modulo a posteriori. A questo scopo, è stato sviluppato un \textit{PrivacyManager} dedicato, il quale agisce come middleware tra la fase di estrazione pura e il caricamento nel Data Lake, garantendo l'anonimizzazione dei log e il rispetto dei tempi di conservazione.
+
+\subsection{Pseudonimizzazione tramite hashing crittografico}
+Nel \textit{Process Mining}, per calcolare i KPI di performance del personale (es. tempi medi di risoluzione per utente) e ricostruire la rete sociale delle interazioni (\textit{Social Network Analysis}), è fondamentale mantenere traccia della risorsa che ha eseguito un'attività. Tuttavia, memorizzare l'identità in chiaro (es. "mario.rossi@azienda.com") costituisce una violazione del principio di minimizzazione dei dati.
+
+Per risolvere questo trade-off, la pipeline ETL implementa una funzione di pseudonimizzazione basata su funzioni di \textit{hashing} crittografico ad una via. Il sistema converte l'identificativo in chiaro in una stringa alfanumerica incomprensibile, avvalendosi dell'algoritmo MD5 rafforzato tramite l'aggiunta di un \textit{salt} crittografico predefinito nelle variabili d'ambiente. Ciò assicura che due operatori diversi abbiano sempre hash diversi, mantenendo l'integrità statistica del log senza esporre il dato personale.
+
+La logica di \textit{hashing} è implementata come segue nel \textit{core} dell'applicazione:
+
+\begin{verbatim}
+import hashlib
+
+class PrivacyManager:
+    def __init__(self):
+        self.salt = settings.email_hash_salt
+        self.pseudonymization_enabled = settings.pseudonymization_enabled
+    
+    def hash_email(self, email: str) -> str:
+        if not email or not email.strip():
+            return "Unknown"
+            
+        email_normalized = email.strip().lower()
+        hash_input = f"{email_normalized}{self.salt}"
+        hash_value = hashlib.md5(hash_input.encode('utf-8')).hexdigest()
+        
+        return f"User_{hash_value[:16]}"
+\end{verbatim}
+
+Questa funzione viene poi mappata vettorialmente sull'intero dataframe Polars durante la fase di trasformazione, garantendo alte prestazioni anche su milioni di righe:
+
+\begin{verbatim}
+def _apply_pseudonymization(self, df: pl.DataFrame) -> pl.DataFrame:
+    sensitive_columns = ['resource', 'email']
+    df_pseudonymized = df.clone()
+    
+    for column in sensitive_columns:
+        if column in df_pseudonymized.columns:
+            df_pseudonymized = df_pseudonymized.with_columns([
+                pl.col(column).apply(
+                    lambda x: privacy_manager.hash_email(str(x))
+                ).alias(column)
+            ])
+    return df_pseudonymized
+\end{verbatim}
+
+\subsection{Data Retention e Audit Logging}
+Oltre alla pseudonimizzazione, la \textit{compliance} normativa impone vincoli stringenti sulla limitazione della conservazione dei dati (Storage Limitation) e sull'\textit{Accountability} (Responsabilizzazione). 
+
+Per rispondere al primo requisito, è stato implementato un \textit{demone} asincrono incaricato di far rispettare le \textit{Data Retention Policies}. Il servizio analizza periodicamente i file salvati all'interno delle directory \textit{raw}, \textit{staged} e \textit{processed} del Data Lake, confrontando la marca temporale di ultima modifica (ottenuta tramite la funzione di sistema \texttt{stat().st\_mtime}) con una finestra temporale massima configurabile (es. 365 giorni). Qualora un frammento di dati superi tale limite, il file viene irreversibilmente eliminato (\textit{unlinked}) dal file system.
+
+A garanzia dell'Accountability, la classe \texttt{PrivacyGovernanceService} implementa un rigoroso meccanismo di \textit{Audit Logging}. Ogni qualvolta un processo algoritmico o un utente finale richiede l'accesso a porzioni del dataset, il sistema registra una voce di log in formato JSON (\texttt{privacy\_audit.log}). La traccia contiene il timestamp, la tipologia di operazione richiesta, l'identificativo del richiedente e un \textit{flag} che indica se l'accesso ha coinvolto colonne originariamente classificate come sensibili. Questo livello di tracciabilità si rivela uno strumento indispensabile in sede di audit aziendale o certificazione ISO.
+
+% ------------------------------------------------------------------
+% CAPITOLO 4: PROCESS DISCOVERY E CONFORMANCE CHECKING
+% ------------------------------------------------------------------
+\chapter{PROCESS DISCOVERY E CONFORMANCE CHECKING}
+
+L'estrazione di un \textit{Event Log} validato e normalizzato, per quanto essenziale, costituisce solamente il prerequisito per l'applicazione delle tecniche di \textit{Process Intelligence}. Il Capitolo 4 esplora il nucleo matematico del sistema, illustrando come i dati tabellari vengano trasformati in modelli comportamentali attraverso algoritmi di \textit{Process Discovery}, e come tali modelli vengano successivamente valutati tramite logiche di \textit{Conformance Checking}.
+
+\section{Elaborazione dei modelli di processo}
+L'obiettivo primario della fase di \textit{Discovery} è sintetizzare un modello di processo a partire da un registro di eventi non etichettato, senza alcuna assunzione aprioristica su come il processo dovrebbe comportarsi [1]. Nel contesto di un CRM aziendale, ciò si traduce nella mappatura visiva e quantitativa dell'intero ciclo di vita di un \textit{Deal}, dall'acquisizione del \textit{Lead} fino alla chiusura del contratto (Won/Lost).
+
+Per l'implementazione di questi algoritmi, l'architettura si affida alla libreria \textbf{PM4Py} [3], integrata all'interno del servizio di dominio \texttt{DiscoveryService}.
+
+\subsection{Generazione del Directly-Follows Graph (DFG)}
+Il modello più intuitivo e computazionalmente efficiente per l'analisi esplorativa è il \textit{Directly-Follows Graph} (Grafo di Diretta Consecuzione). Un DFG è un grafo orientato $G = (N, E)$ dove i nodi $N$ rappresentano le singole attività (gli stati del \textit{Deal} su HubSpot) e gli archi diretti $E$ rappresentano le transizioni osservate tra un'attività e la successiva. 
+
+Ogni arco è pesato in base a due possibili metriche vettoriali:
+\begin{itemize}
+    \item \textbf{Frequenza assoluta:} Il numero di volte in cui una specifica transizione si è verificata all'interno dell'intero log.
+    \item \textbf{Performance (Tempo medio):} Il delta temporale medio trascorso per passare dal nodo sorgente al nodo destinazione, fondamentale per individuare i \textit{bottleneck} (colli di bottiglia).
+\end{itemize}
+
+Nel sistema sviluppato, la generazione del DFG è incapsulata in una classe asincrona che riceve in input il dataframe Polars convertito nel formato standard di PM4Py. Di seguito è riportato lo stralcio relativo al calcolo delle frequenze e dei tempi di attraversamento:
+
+\begin{verbatim}
+import pm4py
+from pm4py.objects.log.obj import EventLog
+
+class DiscoveryService:
+    def __init__(self, log: EventLog):
+        self.log = log
+
+    def generate_dfg_frequencies(self) -> dict:
+        dfg, start_activities, end_activities = pm4py.discover_dfg(self.log)
+        return {
+            "edges": dfg,
+            "start_nodes": start_activities,
+            "end_nodes": end_activities
+        }
+
+    def generate_dfg_performance(self) -> dict:
+        dfg_perf, start_act, end_act = pm4py.discover_performance_dfg(self.log)
+        return {
+            "edges_performance": dfg_perf,
+            "start_nodes": start_act,
+            "end_nodes": end_act
+        }
+\end{verbatim}
+
+\subsection{Algoritmi avanzati (Alpha Miner e Heuristics Miner)}
+Sebbene il DFG fornisca una panoramica immediata, esso soffre di una severa limitazione analitica: non è in grado di rappresentare costrutti logici complessi come la concorrenza (task eseguiti in parallelo) o le scelte esclusive (XOR gateway). Per modellare tali dinamiche, il sistema implementa algoritmi di discovery più sofisticati, restituendo in output modelli formali noti come \textit{Reti di Petri}.
+
+Il primo algoritmo valutato è stato l'\textbf{Alpha Miner}. Basandosi sulla rilevazione di relazioni causali tra le attività (relazioni di sequenza, di scelta, di parallelismo e di non connessione), l'Alpha Miner è in grado di costruire una Rete di Petri matematicamente rigorosa. Tuttavia, test empirici sui dati reali di HubSpot hanno dimostrato che l'Alpha Miner è intollerante al rumore: anche una singola anomalia (ad esempio un commerciale che salta per errore una fase e vi ritorna subito dopo) genera un modello noto in gergo come \textit{"Spaghetti Process"}, ovvero un grafo talmente denso di archi da risultare illeggibile.
+
+Per superare questo limite, il motore è stato impostato per utilizzare di default l'\textbf{Heuristics Miner}. Questo algoritmo applica un approccio probabilistico: invece di considerare ogni singola transizione come una regola ferrea, calcola una misura di dipendenza basata sulle frequenze. Tramite l'impostazione di soglie parametriche (\textit{Dependency Threshold} e \textit{Observation Threshold}), il sistema scarta le transizioni anomale e a bassa frequenza, restituendo il flusso \textit{Mainstream} dell'azienda. L'implementazione prevede la calibrazione dinamica di questi parametri direttamente dalla \textit{Dashboard} utente:
+
+\begin{verbatim}
+def discover_heuristics_net(self, dependency_thresh: float = 0.5):
+    # L'Heuristics Miner tollera il rumore filtrando archi rari
+    net, im, fm = pm4py.discover_petri_net_heuristics(
+        self.log,
+        dependency_threshold=dependency_thresh,
+        and_threshold=0.65,
+        loop_two_threshold=0.5
+    )
+    return net, im, fm
+\end{verbatim}
+
+\section{Analisi delle varianti di processo}
+Un ulteriore livello di astrazione analitica è fornito dall'analisi delle \textit{Varianti}. In ambito Process Mining, una variante è definita come una sequenza unica e specifica di attività, dall'inizio alla fine del caso. Due \textit{Deal} che attraversano esattamente gli stessi stati nel medesimo ordine appartengono alla stessa variante, indipendentemente dal tempo impiegato o dall'operatore coinvolto.
+
+L'estrazione delle varianti permette al management di rispondere a una domanda cruciale: \textit{"Qual è il percorso standard che la maggior parte delle nostre pratiche segue?"}.
+Frequentemente, il \textit{Teorema di Pareto} si applica anche ai processi aziendali: il 20\% delle varianti copre l'80\% del volume totale dei log, rappresentando il processo \textit{Happy Path} (il percorso ideale e senza intoppi). Il restante 80\% delle varianti costituisce la \textit{Long Tail} (coda lunga), composta da eccezioni, \textit{rework} (rilavorazioni), e iter complessi.
+
+Il modulo di calcolo sviluppato aggrega i dati vettorialmente per estrarre la distribuzione di frequenza delle varianti. In questo modo l'interfaccia frontend è in grado di mostrare un grafico a torta o un istogramma che evidenzia quanto il processo aziendale sia standardizzato rispetto a quanto sia frammentato in casistiche eccezionali. Una forte proliferazione di varianti a bassa frequenza è un indicatore primario di scarsa \textit{governance} procedurale all'interno del team di vendita.
+
+\section{Conformance Checking e calcolo di Fitness e Precision}
+Se la fase di \textit{Discovery} mira a costruire un modello a partire dai dati, il \textit{Conformance Checking} procede nella direzione opposta: accoppia un modello di processo di riferimento (spesso il modello "To-Be" teorizzato dall'azienda o generato precedentemente) con l'Event Log attuale ("As-Is"), al fine di misurare oggettivamente le discrepanze [1].
+
+In ambito aziendale, gli operatori commerciali dovrebbero seguire pipeline rigide imposte nel CRM. Tuttavia, deviazioni come salti di fase, ritorni a stati precedenti (\textit{rework}) o chiusure premature senza l'opportuna qualificazione del \textit{Lead} sono all'ordine del giorno. Il sistema valuta l'aderenza a queste regole tramite due metriche matematiche fondamentali, calcolate sulle Reti di Petri scoperte in precedenza:
+
+\begin{itemize}
+    \item \textbf{Fitness (Replay Fitness):} Misura la porzione di comportamento registrato nel log che può essere riprodotta (o "accettata") dal modello. Un valore di Fitness pari a $1.0$ (100\%) indica che ogni singola traccia presente nel CRM è perfettamente contemplata dalle regole del modello.
+    \item \textbf{Precision:} Misura la capacità del modello di non generalizzare eccessivamente. Un modello con Precisione pari a $1.0$ (100\%) non consente alcun comportamento che non sia stato esplicitamente osservato nel log.
+\end{itemize}
+
+Nel motore algoritmico del progetto, il calcolo di queste metriche è stato implementato ricorrendo alla tecnica dell'\textit{Alignment-based Conformance Checking} (Allineamenti). Rispetto al più datato \textit{Token Replay}, gli allineamenti trovano matematicamente il percorso valido più vicino a una traccia non conforme, permettendo di localizzare il punto esatto in cui l'operatore ha violato la procedura. Il servizio dedicato esegue i calcoli in background, data la loro natura intensiva a livello computazionale:
+
+\begin{verbatim}
+import pm4py
+from pm4py.algo.evaluation.replay_fitness import algorithm as fitness_evaluator
+from pm4py.algo.evaluation.precision import algorithm as precision_evaluator
+
+class ConformanceService:
+    def __init__(self, log, net, initial_marking, final_marking):
+        self.log = log
+        self.net = net
+        self.im = initial_marking
+        self.fm = final_marking
+
+    def calculate_fitness(self) -> float:
+        fitness_result = fitness_evaluator.apply(
+            self.log, self.net, self.im, self.fm,
+            variant=fitness_evaluator.Variants.ALIGNMENT_BASED
+        )
+        return fitness_result['average_trace_fitness']
+
+    def calculate_precision(self) -> float:
+        precision_result = precision_evaluator.apply(
+            self.log, self.net, self.im, self.fm,
+            variant=precision_evaluator.Variants.ALIGN_ETCONFORMANCE
+        )
+        return precision_result
+\end{verbatim}
+
+L'esposizione di tali indici nella Dashboard Streamlit offre al management un "termometro" istantaneo della standardizzazione operativa: un brusco calo della Fitness nel corso di una settimana è un forte segnale di allarme per il controllo qualità.
+
+\section{Calcolo dei Process KPI e individuazione dei colli di bottiglia}
+L'ultimo tassello analitico fornito dagli algoritmi sui grafi riguarda la dimensione temporale e prestazionale del flusso commerciale. L'individuazione empirica dei colli di bottiglia (\textit{Bottleneck Analysis}) è un'esigenza primaria, in quanto un rallentamento in una singola fase critica impatta l'intera filiera del \textit{Lead-to-Cash}.
+
+Per soddisfare questa richiesta, il modulo \texttt{KPIService} estrae dal \textit{Directly-Follows Graph} e dal registro degli eventi una serie di indicatori chiave di prestazione (\textit{Key Performance Indicators}):
+
+\begin{enumerate}
+    \item \textbf{Throughput Time (Tempo di attraversamento):} Misurato come il delta temporale totale tra il primo evento di un caso (es. \textit{Lead Created}) e il suo evento terminale (es. \textit{Closed Won} o \textit{Closed Lost}). Il sistema calcola metriche aggregate quali media, mediana e deviazione standard per smussare l'effetto dei valori anomali (outlier).
+    \item \textbf{Processing Time e Waiting Time:} Scomponendo il tempo di transizione tra due nodi collegati del grafo, il sistema determina il tempo speso in ogni singola fase, evidenziando gli stati in cui le opportunità commerciali rimangono "congelate" per periodi ingiustificati rispetto alle policy di SLA (\textit{Service Level Agreement}) aziendali.
+    \item \textbf{Rework Rate:} Una metrica personalizzata che identifica cicli o auto-anelli (self-loops) all'interno della medesima pratica, un chiaro indicatore di inefficienza e dispendio inutile di risorse umane.
+\end{enumerate}
+
+A livello implementativo, sfruttando la libreria Polars per l'analisi vettoriale delle finestre temporali, il calcolo dei \textit{Lead Time} risulta estremamente efficiente:
+
+\begin{verbatim}
+import polars as pl
+
+def calculate_lead_times(df: pl.DataFrame) -> pl.DataFrame:
+    # Calcolo del tempo totale di attraversamento per ogni caso
+    lead_times = df.group_by("case_id").agg([
+        pl.col("timestamp").min().alias("start_time"),
+        pl.col("timestamp").max().alias("end_time")
+    ]).with_columns(
+        (pl.col("end_time") - pl.col("start_time")).dt.total_days().alias("lead_time_days")
+    )
+    return lead_times
+
+def identify_bottlenecks(dfg_performance: dict, threshold_days: int) -> list:
+    bottlenecks = []
+    for edge, time_seconds in dfg_performance.items():
+        time_days = time_seconds / 86400
+        if time_days > threshold_days:
+            bottlenecks.append({
+                "source": edge[0],
+                "target": edge[1],
+                "delay_days": round(time_days, 2)
+            })
+    return bottlenecks
+\end{verbatim}
+
+L'elenco dei \textit{bottleneck} così individuato alimenta dinamicamente la componente visuale dell'applicazione: il diagramma a nodi e archi colora di rosso acceso (grazie a un gradiente termico associato alla scala dei tempi) le transizioni critiche, guidando istantaneamente l'occhio dell'analista verso i problemi sistemici da sanare.
+
+% ------------------------------------------------------------------
+% CAPITOLO 5: ANALISI PREDITTIVA E INTEGRAZIONE AVANZATA
+% ------------------------------------------------------------------
+\chapter{ANALISI PREDITTIVA E INTEGRAZIONE AVANZATA}
+
+L'estrazione dei modelli di processo e l'individuazione dei colli di bottiglia forniscono un'eccezionale vista diagnostica sulle inefficienze storiche. Tuttavia, affinché un sistema di \textit{Process Intelligence} generi un ritorno sull'investimento (ROI) tangibile e immediato, deve evolvere da uno strumento puramente retrospettivo a uno strumento \textit{predittivo} e \textit{prescrittivo}. Questo capitolo illustra l'integrazione di modelli di \textit{Machine Learning} per la previsione degli esiti commerciali e l'implementazione di architetture di \textit{Reverse ETL} per chiudere il flusso informativo, riportando il valore generato direttamente nel CRM nativo.
+
+\section{Feature Engineering sui log di processo}
+Gli algoritmi di \textit{Machine Learning} supervisionato richiedono in input dataset tabellari in cui ogni riga rappresenta un'istanza indipendente e ogni colonna una variabile indipendente (\textit{feature}). Un \textit{Event Log}, per sua natura, è invece un dataset sequenziale e relazionale: un singolo \textit{Deal} (caso) è spalmato su decine di righe temporali.
+
+Per addestrare un modello capace di prevedere se un'opportunità commerciale ancora aperta verrà vinta (\textit{Closed Won}) o persa (\textit{Closed Lost}), è stato necessario sviluppare una complessa pipeline di \textit{Feature Engineering}. L'obiettivo di questa fase è "schiacciare" la sequenza temporale di un caso in un singolo vettore di stato, estraendo indicatori sintetici ad altissimo potenziale predittivo.
+
+Il modulo \texttt{FeatureExtractor} elabora il log calcolando per ogni pratica:
+\begin{itemize}
+    \item \textbf{Feature Temporali:} Il tempo totale trascorso dalla creazione (\textit{Lead Time}), il tempo speso nella fase corrente e l'eventuale superamento delle soglie critiche (\textit{Bottleneck Flag}).
+    \item \textbf{Feature Comportamentali:} Il numero totale di transizioni effettuate, il conteggio dei \textit{rework} (ritorni a fasi precedenti) e l'identificazione di deviazioni dal percorso standard (calate dal \textit{Conformance Checking}).
+    \item \textbf{Feature di Contesto:} Il valore economico stimato del \textit{Deal} (\textit{Amount}) e la risorsa (commerciale) attualmente assegnata alla pratica.
+\end{itemize}
+
+\section{Modelli predittivi per il rischio e il churn}
+Una volta ingegnerizzato il dataset di addestramento, il sistema implementa modelli di \textit{Classificazione Binaria} avvalendosi della libreria \textbf{Scikit-learn}. A causa della natura non lineare delle interazioni tra le \textit{feature} di processo, modelli lineari classici (come la Regressione Logistica) si sono rivelati inadeguati. Di conseguenza, l'architettura predittiva si affida ad algoritmi basati su \textit{Ensemble Learning}, nello specifico il \textbf{Random Forest Classifier}.
+
+Il Random Forest opera costruendo una moltitudine di alberi decisionali durante la fase di training e restituendo come previsione la moda delle classi previste dai singoli alberi. Questo approccio garantisce una notevole robustezza contro l'overfitting e gestisce nativamente variabili categoriche e valori mancanti.
+
+Il modello viene addestrato esclusivamente sui \textit{Deal} che hanno già raggiunto uno stato terminale (vinto o perso). Successivamente, la fase di inferenza (\textit{Predictive Scoring}) viene applicata ai \textit{Deal} attualmente "in volo" (in lavorazione). Il modello non si limita a prevedere l'esito finale, ma restituisce una stima probabilistica (da 0\% a 100\%) nota come \textit{Win Probability Score}.
+
+Di seguito un estratto della logica di \textit{training} e inferenza implementata nei \textit{worker} asincroni:
+
+\begin{verbatim}
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+
+class PredictiveService:
+    def __init__(self, n_estimators=100):
+        self.model = RandomForestClassifier(
+            n_estimators=n_estimators, 
+            class_weight='balanced',
+            random_state=42
+        )
+
+    def train_model(self, X_train, y_train):
+        self.model.fit(X_train, y_train)
+        
+    def generate_predictions(self, X_live: pl.DataFrame) -> list:
+        # Estrazione della probabilità di classe positiva (Win)
+        probabilities = self.model.predict_proba(X_live)[:, 1]
+        
+        predictions = []
+        for deal_id, prob in zip(X_live['case_id'], probabilities):
+            predictions.append({
+                "deal_id": deal_id,
+                "win_probability": round(prob * 100, 2),
+                "risk_flag": "HIGH" if prob < 0.3 else "LOW"
+            })
+        return predictions
+\end{verbatim}
+
+\section{Meccanismi di Reverse ETL}
+Il mero calcolo delle probabilità predittive e dei KPI di processo su una \textit{Dashboard} esterna costringerebbe gli operatori commerciali a un continuo cambio di contesto (\textit{Context Switching}) tra il CRM aziendale e l'applicativo analitico. Per massimizzare l'adozione della piattaforma, l'infrastruttura implementa un paradigma di \textbf{Reverse ETL}.
+
+Il Reverse ETL è il processo architetturale mediante il quale i dati elaborati, arricchiti e modellati all'interno di un moderno \textit{Data Stack} (in questo caso Python/DuckDB) vengono estratti e re-iniettati nei sistemi operativi (\textit{System of Records}) da cui originariamente provenivano, come HubSpot.
+
+\subsection{Sincronizzazione dei KPI e degli score su HubSpot}
+Il \textit{task} asincrono \texttt{integration\_task}, gestito tramite Celery, si occupa di orchestrare la sincronizzazione bidirezionale. Il sistema provvede innanzitutto a creare programmaticamente all'interno di HubSpot delle \textit{Custom Properties} (Proprietà Personalizzate) associate all'oggetto \textit{Deal}, quali ad esempio \texttt{pm\_win\_probability}, \texttt{pm\_bottleneck\_flag} e \texttt{pm\_rework\_count}.
+
+Successivamente, attraverso chiamate API di tipo \texttt{PATCH} eseguite in \textit{batch} per rispettare i vincoli di rete, il motore aggiorna i record sul CRM. Questo approccio arricchisce il dato grezzo nativo con gli insight algoritmici.
+
+\begin{verbatim}
+@celery_app.task(bind=True, queue='integration', max_retries=3)
+def sync_predictions_to_hubspot(self, predictions_batch: list):
+    client = HubSpotClient()
+    success_count = 0
+    
+    for record in predictions_batch:
+        deal_id = record['deal_id']
+        payload = {
+            "properties": {
+                "pm_win_probability": record['win_probability'],
+                "pm_risk_status": record['risk_flag']
+            }
+        }
+        try:
+            client.update_deal(deal_id, payload)
+            success_count += 1
+        except Exception as exc:
+            logger.error(f"Sync fallita per il deal {deal_id}")
+            raise self.retry(exc=exc, countdown=60)
+            
+    return {"status": "success", "synced_records": success_count}
+\end{verbatim}
+
+\subsection{Generazione di alert proattivi e workflow trigger}
+La presenza di queste metriche avanzate direttamente all'interno delle schede cliente di HubSpot sblocca capacità operative precedentemente irrealizzabili. Poiché i campi custom generati dal \textit{Process Mining} sono riconosciuti nativamente dal motore di automazione di HubSpot, l'azienda può configurare \textit{Workflow} e logiche condizionali (\textit{Trigger}) basate sui dati algoritmici.
+
+A titolo esemplificativo, è possibile automatizzare l'invio di un \textit{alert} via email o su canali di messaggistica aziendale (es. Slack) al \textit{Sales Manager} ogniqualvolta un'opportunità commerciale dal valore superiore a $10.000$ Euro entri in uno stato identificato dal motore come "Collo di Bottiglia" per più di 5 giorni consecutivi, oppure se il suo \textit{Win Probability Score} crolla improvvisamente al di sotto del 30\% a seguito di una variazione anomala di processo. 
+
+Tale integrazione chiude il cerchio della \textit{Data-Driven Enterprise}: l'analisi storica alimenta il modello matematico, il modello genera previsioni, e le previsioni attivano protocolli di salvataggio operativi prima che il danno economico si concretizzi.
+
+% ------------------------------------------------------------------
+% CAPITOLO 6: PRESENTAZIONE DEI RISULTATI E UX
+% ------------------------------------------------------------------
+\chapter{PRESENTAZIONE DEI RISULTATI E UX}
+
+L'efficacia di un sistema di \textit{Process Intelligence} non si misura esclusivamente dalla sofisticazione dei suoi algoritmi matematici, ma anche e soprattutto dal suo grado di usabilità e dalla capacità di tradurre \textit{insight} complessi in informazioni visivamente intuitive. Per garantire l'adozione dello strumento da parte degli stakeholder aziendali, il backend analitico è stato accoppiato a un livello di presentazione (Frontend) reattivo, progettato secondo i principi della \textit{User Experience} (UX) orientata ai dati.
+
+\section{Progettazione della User Interface (Streamlit)}
+Per lo sviluppo dell'interfaccia utente è stato impiegato \textbf{Streamlit} \footcite{streamlit2024}, un framework open-source basato su Python. La scelta di questa tecnologia, in alternativa a framework frontend classici come React o Angular, è motivata dalla sua integrazione nativa con l'ecosistema data-scientifico (Polars, Pandas, PM4Py, Scikit-learn). Streamlit permette di aggiornare reattivamente il \textit{Document Object Model} (DOM) a ogni interazione dell'utente con i parametri di input, azzerando la necessità di gestire complessi stati client-side o scrivere codice boilerplate in JavaScript.
+
+L'applicazione è stata strutturata secondo un'architettura multipagina (\textit{Multipage App}), dividendo logicamente i domini operativi per evitare il sovraccarico cognitivo dell'utente. Il punto di ingresso (\texttt{main.py}) funge da router, caricando dinamicamente i moduli richiesti attraverso una barra di navigazione laterale:
+
+\begin{verbatim}
+import streamlit as st
+
+def main():
+    st.set_page_config(
+        page_title="Process Mining Enterprise",
+        page_icon="Analytics",
+        layout="wide"
+    )
+    
+    st.sidebar.title("Navigazione")
+    page = st.sidebar.radio("Seleziona un modulo:", [
+        "Dashboard Processo",
+        "Qualità dei Dati",
+        "Insights Predittivi",
+        "Impostazioni di Rete"
+    ])
+    
+    if page == "Dashboard Processo":
+        render_process_dashboard()
+    elif page == "Qualità dei Dati":
+        render_data_quality()
+    elif page == "Insights Predittivi":
+        render_predictive_insights()
+    else:
+        render_settings()
+
+\end{verbatim}
+
+\section{Visualizzazione interattiva dei grafi e dei KPI}
+
+Il modulo centrale della piattaforma è la \textbf{Dashboard Processo}, che espone visivamente il \textit{Directly-Follows Graph} (DFG) calcolato dal motore di \textit{Discovery}.
+
+Per la renderizzazione dei grafi orientati è stata utilizzata l'integrazione tra PM4Py e \textbf{Graphviz}. Poiché i grafi aziendali possono diventare estremamente densi, l'interfaccia mette a disposizione dell'analista una serie di \textit{slider} interattivi per calibrare "al volo" le soglie algoritmiche (es. la \textit{Dependency Threshold} dell'Heuristics Miner). Modificando questi parametri, l'utente applica un filtro euristico che fa sparire in tempo reale gli archi corrispondenti a deviazioni rare o rumore di fondo, mettendo a nudo il nucleo del processo (\textit{Happy Path}).
+
+A corredo della topologia di rete, la dashboard presenta i KPI di processo estratti dal \texttt{KPIService}. Sfruttando i componenti metrici di Streamlit (\texttt{st.metric}), vengono messi in risalto gli scostamenti prestazionali (\textit{delta}) rispetto alle medie storiche. I colli di bottiglia vengono esplicitati in una tabella dedicata, ordinata in modo decrescente per tempo di ritardo accumulato, permettendo al management di identificare immediatamente le fasi di \textit{pipeline} (es. "Attesa Firma Contratto") che necessitano di un intervento manageriale.
+
+\section{Dashboard per il monitoraggio predittivo e della qualità dei dati}
+Oltre all'esplorazione diagnostica, la piattaforma fornisce due cruscotti operativi specializzati: il monitoraggio della conformità dei dati e l'intelligenza predittiva.
+
+\subsection*{Il Modulo di Data Quality}
+Come discusso nei capitoli precedenti, l'integrità del log è garantita da \textbf{Pandera}. Il modulo "Qualità dei Dati" del frontend si collega al database analitico DuckDB e interroga la tabella degli \textit{audit}. Questa vista offre indicatori visivi (semafori o gauge chart) che riassumono:
+\begin{itemize}
+    \item La percentuale di record che hanno superato i controlli di schema.
+    \item Il numero di anomalie temporali rilevate (es. timestamp invertiti).
+    \item Lo stato del tasso di completamento (\textit{Completeness Rate}) dei campi obbligatori.
+\end{itemize}
+In presenza di errori bloccanti, l'interfaccia espone i log dettagliati per guidare l'operatore IT nella bonifica del dato sorgente sul CRM.
+
+\subsection*{Il Modulo di Predictive Insights}
+Il modulo "Insights Predittivi" è dedicato all'esposizione dei risultati del Machine Learning e rappresenta lo strumento operativo quotidiano per i \textit{Sales Manager}. 
+La vista principale è composta da una griglia interattiva che elenca tutti i \textit{Deal} attualmente aperti (\textit{Work in Progress}). Per ogni pratica, l'interfaccia evidenzia:
+\begin{enumerate}
+    \item L'identificativo univoco della pratica e l'agente assegnatario.
+    \item Il \textbf{Win Probability Score} (generato dal modello Random Forest), visualizzato tramite una barra di progresso colorata (verde per probabilità $> 70\%$, giallo, e rosso per probabilità critiche $< 30\%$).
+    \item Un pulsante di \textit{Action Trigger} che permette di forzare manualmente il processo di \textbf{Reverse ETL}, sincronizzando istantaneamente i nuovi score calcolati verso l'istanza di HubSpot senza attendere il batch asincrono programmato.
+\end{enumerate}
+
+Questa struttura \textit{user-friendly} trasforma un complesso elaboratore matematico in uno strumento di supporto alle decisioni (DSS) ad altissima accessibilità, massimizzando il ritorno pratico dell'investimento tecnologico.
+
+% ------------------------------------------------------------------
+% CAPITOLO 7: CONCLUSIONI E SVILUPPI FUTURI
+% ------------------------------------------------------------------
+\chapter{CONCLUSIONI E SVILUPPI FUTURI}
+
+\section{Valutazione dei risultati raggiunti e impatto aziendale}
+Il presente lavoro di tesi ha dimostrato con successo la fattibilità e l'immenso valore strategico derivante dall'applicazione del \textit{Process Mining} ai dati transazionali di un sistema CRM. Partendo da un'infrastruttura di tracciamento puramente documentale (HubSpot), è stata ingegnerizzata una pipeline architetturale \textit{End-to-End} in grado di estrarre, validare e modellare matematicamente le dinamiche operative della forza vendita.
+
+L'impatto aziendale generato dall'adozione di tale sistema si è rivelato tangibile su molteplici fronti. Il management ha abbandonato un approccio decisionale basato su assunzioni teoriche per abbracciare un paradigma strettamente \textit{Data-Driven}. La visibilità oggettiva sui veri flussi di lavoro ha permesso di individuare inefficienze sistemiche, quantificare i ritardi legati ai colli di bottiglia (\textit{Bottlenecks}) e misurare lo scostamento tra le regole aziendali e la pratica quotidiana (\textit{Conformance Checking}). Inoltre, l'implementazione del Machine Learning per il calcolo del \textit{Win Probability Score} e la geniale integrazione del \textit{Reverse ETL} hanno trasformato un sistema di reportistica passivo in uno strumento proattivo, capace di allertare gli operatori e innescare automatismi operativi direttamente nel CRM.
+
+\section{Analisi delle criticità riscontrate}
+La realizzazione di un'infrastruttura analitica così complessa ha comportato il superamento di diverse sfide ingegneristiche e metodologiche. 
+In primo luogo, l'interfacciamento con le API cloud ha posto severi limiti operativi: la restrizione sul volume di chiamate (\textit{Rate Limiting}) ha rischiato di compromettere l'ingestione massiva dei dati storici. Tale criticità è stata brillantemente risolta adottando un'architettura asincrona (Celery, Redis) accoppiata a logiche di \textit{Exponential Backoff} (Tenacity).
+
+Una seconda problematica rilevante ha riguardato la \textit{Data Quality}. I dati grezzi inseriti manualmente dagli operatori nel CRM presentavano inevitabilmente rumore, campi vuoti e incongruenze temporali. È stato quindi imperativo sviluppare un robusto layer di \textit{Data Governance} tramite \textit{Pandera}, impedendo che \textit{garbage data} corrompessero i modelli matematici a valle. 
+Infine, sul fronte algoritmico, si è riscontrato che l'elevata variabilità del comportamento umano produceva modelli di processo illeggibili (\textit{Spaghetti Process}) se elaborati con algoritmi classici. L'impiego dell'\textit{Heuristics Miner} di PM4Py ha permesso di aggirare l'ostacolo, filtrando il rumore e isolando il core business process aziendale.
+
+\section{Considerazioni lavorative e prospettive di sviluppo futuro}
+Il progetto ha posto basi ingegneristiche solide e facilmente scalabili. Guardando agli sviluppi futuri, la piattaforma si presta ad essere espansa in diverse direzioni tecnologiche:
+\begin{itemize}
+    \item \textbf{Elaborazione in Streaming:} Transizione da un'estrazione \textit{batch} asincrona a un'architettura puramente \textit{Event-Driven}. Sfruttando i Webhook nativi di HubSpot e un broker come Apache Kafka, il sistema potrebbe aggiornare i grafi di processo e gli score predittivi in tempo reale.
+    \item \textbf{Integrazione con Modelli Generativi (LLM):} L'interfaccia utente potrebbe essere arricchita con un assistente virtuale basato su un \textit{Large Language Model}. Invece di esplorare manualmente la dashboard, il management potrebbe interrogare il sistema in linguaggio naturale (es. \textit{"Qual è stata la causa principale di ritardo nel mese di Aprile?"}), demandando al backend la traduzione della domanda in query analitiche (Text-to-SQL su DuckDB) e l'estrazione degli \textit{insight}.
+    \item \textbf{Root Cause Analysis potenziata:} Arricchimento del modulo di Machine Learning non solo per prevedere la probabilità di successo, ma per quantificare in modo deterministico quali specifiche azioni abbiano il maggior peso nell'aumentare le probabilità di conversione, offrendo raccomandazioni prescrittive al singolo venditore.
+\end{itemize}
+
+In conclusione, il \textit{Process Intelligence} si conferma un ecosistema vitale. Unire la flessibilità di Python all'ingegneria dei dati moderna non solo ottimizza il tempo e le risorse umane, ma posiziona l'organizzazione in un'ottica di miglioramento continuo e vantaggio competitivo.
+
+
+% ------------------------------------------------------------------
+% BIBLIOGRAFIA E SITOGRAFIA
+% ------------------------------------------------------------------
+\cleardoublepage
+\addcontentsline{toc}{chapter}{BIBLIOGRAFIA E SITOGRAFIA}
+\printbibliography[title={BIBLIOGRAFIA E SITOGRAFIA}]
+
+\end{document}
+
+\begin{thebibliography}{99}
+
+\bibitem{vandaalst}
+Van der Aalst, W. M. P. (2016). 
+\textit{Process Mining: Data Science in Action} (2nd ed.). Springer.
+
+\bibitem{hubspot_api}
+HubSpot, Inc. (2024). 
+\textit{HubSpot API Developer Documentation}. 
+Recuperato da \url{https://developers.hubspot.com/docs/api/overview}
+
+\bibitem{pm4py}
+Berti, A., van Dongen, B. F., \& van der Aalst, W. M. P. (2019). 
+\textit{Process Mining for Python (PM4Py): bridging the gap between process-and data science}. In Proceedings of the ICPM Demo Track (Vol. 2374, pp. 13-16). CEUR-WS.org.
+
+\bibitem{gdpr}
+Unione Europea (2016). 
+\textit{Regolamento (UE) 2016/679 del Parlamento europeo e del Consiglio del 27 aprile 2016 relativo alla protezione delle persone fisiche con riguardo al trattamento dei dati personali (GDPR)}. 
+Gazzetta ufficiale dell'Unione europea, L 119.
+
+\bibitem{pandera}
+Bantilan, N. (2020). 
+\textit{Pandera: Statistical Data Validation of Pandas Dataframes}. Proceedings of the 19th Python in Science Conference.
+
+\bibitem{streamlit}
+Streamlit Inc. (2024). 
+\textit{Streamlit Documentation: The fastest way to build and share data apps}. 
+Recuperato da \url{https://docs.streamlit.io/}
+
+\bibitem{fastapi}
+Tiangolo, S. (2024). 
+\textit{FastAPI: High performance, easy to learn, fast to code, ready for production}. 
+Recuperato da \url{https://fastapi.tiangolo.com/}
+
+\bibitem{polars}
+Vink, R. (2024). 
+\textit{Polars: Blazingly fast DataFrames in Rust and Python}. 
+Recuperato da \url{https://pola.rs/}
+
+\end{thebibliography}
+
+\end{document}

@@ -390,5 +390,67 @@ def cancel_etl_pipeline(self, pipeline_id: str) -> Dict[str, Any]:
         logger.error(f"Errore nella cancellazione pipeline {pipeline_id}: {e}")
         return create_task_result(success=False, error=str(e))
 
+@etl_task()
+def extract_contacts_task(self) -> Dict[str, Any]:
+    """
+    Task per l'estrazione contatti da HubSpot.
+    
+    Returns:
+        Dizionario con risultati estrazione
+    """
+    try:
+        logger.info("Inizio task estrazione contatti")
+        
+        # Estrai contatti
+        contacts_data = data_extraction_service.extract_contacts()
+        
+        result = create_task_result(
+            success=True,
+            data={
+                'contacts_count': len(contacts_data),
+                'metadata': create_task_metadata('extract_contacts', contacts_count=len(contacts_data))
+            }
+        )
+        
+        logger.info(f"Task estrazione contatti completato: {len(contacts_data)} contatti")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore nel task estrazione contatti: {e}")
+        handle_task_error(self.request.id, e)
+        return create_task_result(success=False, error=str(e))
+
+
+@etl_task()
+def extract_companies_task(self) -> Dict[str, Any]:
+    """
+    Task per l'estrazione aziende da HubSpot.
+    
+    Returns:
+        Dizionario con risultati estrazione
+    """
+    try:
+        logger.info("Inizio task estrazione aziende")
+        
+        # Estrai aziende
+        companies_data = data_extraction_service.extract_companies()
+        
+        result = create_task_result(
+            success=True,
+            data={
+                'companies_count': len(companies_data),
+                'metadata': create_task_metadata('extract_companies', companies_count=len(companies_data))
+            }
+        )
+        
+        logger.info(f"Task estrazione aziende completato: {len(companies_data)} aziende")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore nel task estrazione aziende: {e}")
+        handle_task_error(self.request.id, e)
+        return create_task_result(success=False, error=str(e))
+
+
 # Creazione istanza globale
 etl_task_instance = etl_task()

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/discovery", tags=["Discovery"])
 
 # Pydantic models
 class DiscoveryRequest(BaseModel):
-    sample_size: int = 10
+    sample_size: Optional[int] = None
     save_results: bool = True
     apply_config: bool = False
 

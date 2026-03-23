@@ -25,7 +25,6 @@ duckdb = "*"
 pm4py = "*"
 
 # FRONTEND
-taipy = "*"
 python-dotenv = "<=1.0.1"
 
 # UTILS & API

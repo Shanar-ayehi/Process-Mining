@@ -2,7 +2,6 @@ from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from datetime import datetime
-import polars as pl
 
 from app.services.etl.data_quality import data_quality_service
 from app.services.etl.privacy_governance import privacy_governance_service
@@ -50,11 +49,8 @@ async def validate_event_log_schema(request: ValidationRequest):
     try:
         logger.info("Richiesta validazione schema event log")
         
-        # Converte i dati in DataFrame Polars
-        event_log_df = pl.DataFrame(request.event_log_data)
-        
         task = validate_event_log_schema_task.delay(
-            event_log_df=event_log_df
+            event_log_data=request.event_log_data
         )
         
         return {
@@ -76,10 +72,8 @@ async def validate_data_completeness(request: ValidationRequest):
     try:
         logger.info("Richiesta validazione completezza dati")
         
-        event_log_df = pl.DataFrame(request.event_log_data)
-        
         task = validate_data_completeness_task.delay(
-            event_log_df=event_log_df
+            event_log_data=request.event_log_data
         )
         
         return {
@@ -101,10 +95,8 @@ async def validate_data_consistency(request: ValidationRequest):
     try:
         logger.info("Richiesta validazione consistenza dati")
         
-        event_log_df = pl.DataFrame(request.event_log_data)
-        
         task = validate_data_consistency_task.delay(
-            event_log_df=event_log_df
+            event_log_data=request.event_log_data
         )
         
         return {
@@ -127,10 +119,8 @@ async def anonymize_dataframe(request: PrivacyRequest):
     try:
         logger.info("Richiesta anonimizzazione DataFrame")
         
-        event_log_df = pl.DataFrame(request.event_log_data)
-        
         task = anonymize_dataframe_task.delay(
-            event_log_df=event_log_df,
+            event_log_data=request.event_log_data,
             sensitive_columns=request.sensitive_columns
         )
         
@@ -153,10 +143,8 @@ async def validate_gdpr_compliance(request: PrivacyRequest):
     try:
         logger.info("Richiesta validazione compliance GDPR")
         
-        event_log_df = pl.DataFrame(request.event_log_data)
-        
         task = validate_gdpr_compliance_task.delay(
-            event_log_df=event_log_df
+            event_log_data=request.event_log_data
         )
         
         return {
@@ -224,10 +212,8 @@ async def run_full_data_quality_pipeline(request: ValidationRequest):
     try:
         logger.info("Richiesta pipeline qualità dati completa")
         
-        event_log_df = pl.DataFrame(request.event_log_data)
-        
         task = run_full_data_quality_pipeline_task.delay(
-            event_log_df=event_log_df
+            event_log_data=request.event_log_data
         )
         
         return {
@@ -249,10 +235,8 @@ async def generate_data_quality_report(request: ValidationRequest):
     try:
         logger.info("Richiesta generazione report qualità dati")
         
-        event_log_df = pl.DataFrame(request.event_log_data)
-        
         task = generate_data_quality_report_task.delay(
-            event_log_df=event_log_df
+            event_log_data=request.event_log_data
         )
         
         return {
@@ -317,126 +301,32 @@ async def cleanup_audit_logs(retention_days: int = 30):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Direct endpoints (sincroni)
-@router.get("/summary")
+@router.get("/summary", status_code=204)
 async def get_data_quality_summary():
     """
     Ottiene un riepilogo qualità dati sincrono.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta riepilogo qualità dati sincrono")
-        
-        # Placeholder - in produzione si calcolerebbe il riepilogo reale
-        summary = {
-            "quality_summary": {
-                "overall_score": 0.92,
-                "schema_validations": {
-                    "passed": 100,
-                    "failed": 0,
-                    "success_rate": 1.0
-                },
-                "completeness": {
-                    "completeness_score": 0.95,
-                    "missing_values": 15,
-                    "critical_missing": 0
-                },
-                "consistency": {
-                    "consistency_score": 0.88,
-                    "duplicates_found": 5,
-                    "timestamp_issues": 2
-                }
-            },
-            "privacy_compliance": {
-                "gdpr_compliance_score": 0.90,
-                "pseudonymization_enabled": True,
-                "sensitive_columns_found": 3
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return summary
-        
-    except Exception as e:
-        logger.error(f"Errore riepilogo qualità dati: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta riepilogo qualità dati sincrono - Dati non disponibili o implementazione assente.")
+    return
 
-@router.get("/issues/top")
+@router.get("/issues/top", status_code=204)
 async def get_top_quality_issues():
     """
     Ottiene i principali problemi di qualità.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta principali problemi qualità")
-        
-        # Placeholder - in produzione si identificherebbero i problemi reali
-        issues = {
-            "top_issues": [
-                {
-                    "issue_type": "missing_timestamps",
-                    "severity": "medium",
-                    "count": 15,
-                    "affected_cases": 12
-                },
-                {
-                    "issue_type": "duplicate_records",
-                    "severity": "low",
-                    "count": 5,
-                    "affected_cases": 5
-                },
-                {
-                    "issue_type": "inconsistent_data_types",
-                    "severity": "low",
-                    "count": 3,
-                    "affected_fields": ["amount", "stage_id"]
-                }
-            ],
-            "total_issues": 23,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return issues
-        
-    except Exception as e:
-        logger.error(f"Errore principali problemi qualità: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta principali problemi qualità - Dati non disponibili o implementazione assente.")
+    return
 
-@router.get("/compliance/status")
+@router.get("/compliance/status", status_code=204)
 async def get_compliance_status():
     """
     Ottiene lo stato compliance GDPR.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta stato compliance GDPR")
-        
-        # Placeholder - in produzione si calcolerebbe lo stato reale
-        compliance = {
-            "gdpr_compliance": {
-                "overall_score": 0.90,
-                "compliance_checks": {
-                    "data_minimization": True,
-                    "purpose_limitation": True,
-                    "storage_limitation": True,
-                    "integrity_confidentiality": True,
-                    "accountability": True
-                },
-                "sensitive_data": {
-                    "columns_found": 3,
-                    "pseudonymized": 3,
-                    "anonymized": 0
-                }
-            },
-            "privacy_governance": {
-                "retention_policy_applied": True,
-                "audit_logs_enabled": True,
-                "data_subject_rights": "configured"
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return compliance
-        
-    except Exception as e:
-        logger.error(f"Errore stato compliance: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta stato compliance GDPR - Dati non disponibili o implementazione assente.")
+    return
 
 # Health check endpoint
 @router.get("/health")
@@ -516,78 +406,20 @@ async def cancel_task(task_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Configuration endpoints
-@router.get("/config/validation")
+@router.get("/config/validation", status_code=204)
 async def get_validation_config():
     """
     Ottiene la configurazione validazione.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta configurazione validazione")
-        
-        config = {
-            "validation_config": {
-                "schema_validation": {
-                    "required_fields": ["case_id", "activity", "timestamp"],
-                    "data_types": {
-                        "case_id": "string",
-                        "activity": "string", 
-                        "timestamp": "datetime"
-                    }
-                },
-                "completeness_validation": {
-                    "critical_fields": ["case_id", "activity", "timestamp"],
-                    "minimum_completeness": 0.95
-                },
-                "consistency_validation": {
-                    "check_duplicates": True,
-                    "check_timestamps": True,
-                    "check_sequences": True
-                }
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return config
-        
-    except Exception as e:
-        logger.error(f"Errore configurazione validazione: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta configurazione validazione - Dati non disponibili o implementazione assente.")
+    return
 
-@router.get("/config/privacy")
+@router.get("/config/privacy", status_code=204)
 async def get_privacy_config():
     """
     Ottiene la configurazione privacy.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta configurazione privacy")
-        
-        config = {
-            "privacy_config": {
-                "pseudonymization_enabled": True,
-                "sensitive_patterns": [
-                    "email",
-                    "user",
-                    "contact",
-                    "name",
-                    "phone",
-                    "address"
-                ],
-                "retention_policy": {
-                    "default_retention_days": 365,
-                    "max_retention_days": 2555,  # 7 anni
-                    "automatic_cleanup": True
-                },
-                "gdpr_compliance": {
-                    "data_minimization": True,
-                    "purpose_limitation": True,
-                    "storage_limitation": True
-                }
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return config
-        
-    except Exception as e:
-        logger.error(f"Errore configurazione privacy: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta configurazione privacy - Dati non disponibili o implementazione assente.")
+    return

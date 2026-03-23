@@ -20,7 +20,12 @@ from app.services.etl.data_extraction import data_extraction_service
 from app.services.etl.data_transformation import data_transformation_service
 from app.services.etl.data_quality import data_quality_service
 from app.services.etl.privacy_governance import privacy_governance_service
+from app.services.data_service import data_repository
 from app.core.bootstrap import bootstrap_manager
+from app.tasks.etl_task import (
+    extract_deals, transform_deals, 
+    validate_data_quality, apply_privacy_governance
+)
 
 logger = get_logger()
 
@@ -106,40 +111,56 @@ class ReactiveETLManager:
                 await asyncio.sleep(60)  # Attesa ridotta in caso di errore
     
     async def _extraction_loop(self):
-        """Loop per l'estrazione dati."""
+        """Loop per l'estrazione dati usando Celery."""
         while self.is_running:
             try:
-                await self._run_extraction_job()
+                # Avvia task Celery per l'estrazione
+                task = extract_deals.delay()
+                logger.info(f"Task estrazione avviato: {task.id}")
+                
+                # Attendi un po' prima del prossimo ciclo
                 await asyncio.sleep(self.extraction_interval)
             except Exception as e:
                 logger.error(f"Errore nell'extraction loop: {e}")
                 await asyncio.sleep(300)  # Attesa di 5 minuti in caso di errore
-    
+
     async def _transformation_loop(self):
-        """Loop per la trasformazione dati."""
+        """Loop per la trasformazione dati usando Celery."""
         while self.is_running:
             try:
-                await self._run_transformation_job()
+                # Avvia task Celery per la trasformazione
+                task = transform_deals.delay()
+                logger.info(f"Task trasformazione avviato: {task.id}")
+                
+                # Attendi un po' prima del prossimo ciclo
                 await asyncio.sleep(60)  # Controllo ogni minuto
             except Exception as e:
                 logger.error(f"Errore nel transformation loop: {e}")
                 await asyncio.sleep(120)
-    
+
     async def _quality_loop(self):
-        """Loop per il controllo qualità dati."""
+        """Loop per il controllo qualità dati usando Celery."""
         while self.is_running:
             try:
-                await self._run_quality_job()
+                # Avvia task Celery per il controllo qualità
+                task = validate_data_quality.delay()
+                logger.info(f"Task controllo qualità avviato: {task.id}")
+                
+                # Attendi un po' prima del prossimo ciclo
                 await asyncio.sleep(300)  # Controllo ogni 5 minuti
             except Exception as e:
                 logger.error(f"Errore nel quality loop: {e}")
                 await asyncio.sleep(600)  # Attesa di 10 minuti in caso di errore
-    
+
     async def _privacy_loop(self):
-        """Loop per la governance privacy."""
+        """Loop per la governance privacy usando Celery."""
         while self.is_running:
             try:
-                await self._run_privacy_job()
+                # Avvia task Celery per la governance privacy
+                task = apply_privacy_governance.delay()
+                logger.info(f"Task governance privacy avviato: {task.id}")
+                
+                # Attendi un po' prima del prossimo ciclo
                 await asyncio.sleep(3600)  # Controllo ogni ora
             except Exception as e:
                 logger.error(f"Errore nel privacy loop: {e}")
@@ -255,7 +276,7 @@ class ReactiveETLManager:
             raise
     
     async def _extract_data_from_files(self, file_paths: List[Path]) -> Dict[str, Any]:
-        """Estrae dati dai file JSON."""
+        """Estrae dati dai file JSON usando il Data Service Layer."""
         try:
             all_deals = []
             
@@ -263,6 +284,13 @@ class ReactiveETLManager:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     deals_data = json.load(f)
                     all_deals.extend(deals_data)
+            
+            # Salva i dati estratti nel database
+            if all_deals:
+                # Trasforma i dati in event log per salvarli
+                event_log_df = data_transformation_service.transform_hubspot_deals_to_event_log(all_deals)
+                if event_log_df is not None:
+                    await data_repository.save_event_log(event_log_df)
             
             return {
                 'deals_count': len(all_deals),
@@ -353,28 +381,33 @@ class ReactiveETLManager:
             raise
     
     async def _run_extraction_job(self):
-        """Esegue un job di estrazione dati."""
+        """Esegue un job di estrazione dati usando il Data Service Layer."""
         try:
             # Estrai dati da HubSpot se disponibile
             if settings.hubspot_api_key:
                 logger.info("📡 Estrazione dati da HubSpot")
                 deals_data = await data_extraction_service.extract_all_deals_with_history()
                 
-                # Salva i dati estratti
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"hubspot_deals_{timestamp}.json"
-                filepath = settings.raw_data_dir / filename
-                
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    json.dump(deals_data, f, indent=2, ensure_ascii=False)
-                
-                logger.info(f"Dati HubSpot estratti e salvati: {len(deals_data)} deal")
+                # Salva i dati estratti nel database usando il Data Service Layer
+                if deals_data:
+                    # Trasforma i dati in event log per salvarli
+                    event_log_df = data_transformation_service.transform_hubspot_deals_to_event_log(deals_data)
+                    if event_log_df is not None:
+                        success = await data_repository.save_event_log(event_log_df)
+                        if success:
+                            logger.info(f"Dati HubSpot estratti e salvati nel database: {len(deals_data)} deal")
+                        else:
+                            logger.warning("Errore nel salvataggio dei dati estratti nel database")
+                    else:
+                        logger.warning("Nessun event log generato dai dati estratti")
+                else:
+                    logger.info("Nessun dato estratto da HubSpot")
             
         except Exception as e:
             logger.error(f"Errore nell'estrazione dati: {e}")
     
     async def _run_transformation_job(self):
-        """Esegue un job di trasformazione dati."""
+        """Esegue un job di trasformazione dati usando il Data Service Layer."""
         try:
             # Cerca file raw da trasformare
             raw_files = list(settings.raw_data_dir.glob("*.json"))
@@ -389,36 +422,39 @@ class ReactiveETLManager:
                     # Trasforma i dati
                     event_log_df = data_transformation_service.transform_hubspot_deals_to_event_log(deals_data)
                     
-                    # Salva i dati trasformati
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"event_log_{timestamp}.parquet"
-                    filepath = settings.processed_data_dir / filename
-                    
+                    # Salva i dati trasformati nel database usando il Data Service Layer
                     if event_log_df is not None:
-                        event_log_df.write_parquet(str(filepath))
-                        logger.info(f"Dati trasformati salvati: {filepath}")
+                        success = await data_repository.save_event_log(event_log_df)
+                        if success:
+                            logger.info(f"Dati trasformati salvati nel database")
+                        else:
+                            logger.warning("Errore nel salvataggio dei dati trasformati nel database")
+                    else:
+                        logger.warning("Nessun event log generato dalla trasformazione")
             
         except Exception as e:
             logger.error(f"Errore nella trasformazione dati: {e}")
     
     async def _run_quality_job(self):
-        """Esegue un job di controllo qualità."""
+        """Esegue un job di controllo qualità usando il Data Service Layer."""
         try:
-            # Controlla i file processati più recenti
-            processed_files = list(settings.processed_data_dir.glob("*.parquet"))
+            # Recupera l'event log più recente dal database
+            event_log_df = await data_repository.get_latest_event_log()
             
-            if processed_files:
-                latest_file = max(processed_files, key=lambda f: f.stat().st_mtime)
+            if not event_log_df.is_empty():
+                logger.info("🔍 Controllo qualità su event log dal database")
                 
-                logger.info(f"🔍 Controllo qualità su: {latest_file}")
+                # Controlla la qualità dei dati
+                quality_report = data_quality_service.generate_data_quality_report(event_log_df)
                 
-                # Leggi il file e controlla la qualità
-                import polars as pl
-                df = pl.read_parquet(str(latest_file))
-                
-                quality_report = data_quality_service.generate_data_quality_report(df)
-                
-                logger.info(f"Controllo qualità completato - punteggio: {quality_report.get('overall_score', 0)}")
+                # Salva il report di qualità
+                success = await data_repository.save_data_quality_report(quality_report)
+                if success:
+                    logger.info(f"Controllo qualità completato - punteggio: {quality_report.get('overall_score', 0)}")
+                else:
+                    logger.warning("Errore nel salvataggio del report di qualità")
+            else:
+                logger.info("Nessun event log disponibile per il controllo qualità")
             
         except Exception as e:
             logger.error(f"Errore nel controllo qualità: {e}")

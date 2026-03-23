@@ -23,6 +23,7 @@ from app.services.mining.kpi_service import kpi_service
 from app.services.etl.data_extraction import data_extraction_service
 from app.services.etl.data_transformation import data_transformation_service
 from app.services.etl.data_quality import data_quality_service
+from app.services.data_service import data_repository
 from app.core.bootstrap import bootstrap_manager
 
 logger = get_logger()
@@ -272,17 +273,14 @@ async def get_analysis_results(process_id: str):
         if status.status != "completed":
             raise HTTPException(status_code=400, detail="Analisi non ancora completata")
         
-        # Carica i risultati dall'analisi
-        results_file = settings.processed_data_dir / "etl_results" / f"analysis_{process_id}_{status.analysis_timestamp}.json"
+        # Carica i risultati usando il Data Service Layer
+        discovery_results = await data_repository.get_process_discovery_results(process_id)
         
-        if not results_file.exists():
+        if "error" in discovery_results:
             raise HTTPException(status_code=404, detail="Risultati analisi non trovati")
         
-        with open(results_file, 'r', encoding='utf-8') as f:
-            results = json.load(f)
-        
         logger.info(f"Risultati analisi restituiti: {process_id}")
-        return results
+        return discovery_results
         
     except HTTPException:
         raise
@@ -558,7 +556,7 @@ async def _run_process_analysis(process_id: str, status: AnalysisStatus):
                 kpi_result = await _run_kpi_analysis(real_data)
                 quality_result = await _run_quality_analysis(real_data)
                 
-                # Salva risultati
+                # Salva risultati usando il Data Service Layer
                 analysis_results = {
                     "process_id": process_id,
                     "discovery_results": discovery_result,
@@ -568,15 +566,14 @@ async def _run_process_analysis(process_id: str, status: AnalysisStatus):
                     "analysis_timestamp": datetime.now().isoformat()
                 }
                 
-                # Salva su file
-                results_dir = settings.processed_data_dir / "etl_results"
-                results_dir.mkdir(exist_ok=True)
+                # Salva usando il Data Service Layer
+                success = await data_repository.save_process_discovery_results(
+                    results=analysis_results,
+                    process_id=process_id
+                )
                 
-                filename = f"analysis_{process_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                filepath = results_dir / filename
-                
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    json.dump(analysis_results, f, indent=2, ensure_ascii=False)
+                if not success:
+                    logger.warning(f"Errore nel salvataggio risultati analisi per processo {process_id}")
                 
                 status.analysis_timestamp = datetime.now().isoformat()
                 

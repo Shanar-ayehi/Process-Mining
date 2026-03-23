@@ -2,14 +2,13 @@ from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from datetime import datetime
-import polars as pl
 
 from app.services.etl.data_extraction import data_extraction_service
 from app.services.etl.data_transformation import data_transformation_service
 from app.tasks.etl_task import (
     extract_deals_task, transform_deals_task, merge_sources_task,
-    run_full_etl_pipeline_task, schedule_periodic_extraction_task,
-    cleanup_old_data_task
+    run_full_etl_pipeline, schedule_periodic_extraction,
+    cleanup_old_data_task, extract_contacts_task, extract_companies_task
 )
 from app.core.logger import get_logger
 
@@ -49,7 +48,7 @@ async def extract_deals(request: ExtractionRequest):
     try:
         logger.info(f"Richiesta estrazione deal: {len(request.properties_with_history) if request.properties_with_history else 0} proprietà")
         
-        task = extract_deals_task.delay(
+        task = extract_deals.delay(
             properties_with_history=request.properties_with_history
         )
         
@@ -72,7 +71,7 @@ async def extract_contacts():
     try:
         logger.info("Richiesta estrazione contatti")
         
-        task = data_extraction_service.extract_contacts.delay()
+        task = extract_contacts_task.delay()
         
         return {
             "task_id": task.id,
@@ -93,7 +92,7 @@ async def extract_companies():
     try:
         logger.info("Richiesta estrazione aziende")
         
-        task = data_extraction_service.extract_companies.delay()
+        task = extract_companies_task.delay()
         
         return {
             "task_id": task.id,
@@ -115,7 +114,7 @@ async def transform_deals(request: TransformationRequest):
     try:
         logger.info(f"Richiesta trasformazione deal: {len(request.deals_data)} deal")
         
-        task = transform_deals_task.delay(
+        task = transform_deals.delay(
             deals_data=request.deals_data
         )
         
@@ -184,7 +183,7 @@ async def merge_sources(request: TransformationRequest):
     try:
         logger.info("Richiesta fusione sorgenti")
         
-        task = merge_sources_task.delay(
+        task = merge_sources.delay(
             event_log_df=None,  # Da implementare caricamento event log
             contacts_data=request.contacts_data,
             companies_data=request.companies_data
@@ -211,7 +210,7 @@ async def run_full_pipeline(request: PipelineRequest):
     try:
         logger.info("Richiesta pipeline ETL completa")
         
-        task = run_full_etl_pipeline_task.delay(
+        task = run_full_etl_pipeline.delay(
             properties_with_history=request.properties_with_history,
             include_contacts=request.include_contacts,
             include_companies=request.include_companies
@@ -237,7 +236,7 @@ async def schedule_extraction(request: ScheduleRequest):
     try:
         logger.info(f"Richiesta pianificazione estrazione: ogni {request.interval_hours} ore")
         
-        task = schedule_periodic_extraction_task.delay(
+        task = schedule_periodic_extraction.delay(
             interval_hours=request.interval_hours
         )
         
@@ -282,135 +281,42 @@ async def connector_health_check():
     """
     Health check per il servizio connector.
     """
-    try:
-        logger.info("Health check connector")
-        
-        # Verifica connessione HubSpot
-        try:
-            # Placeholder - in produzione si verificherebbe la connessione reale
-            hubspot_connected = True
-        except Exception:
-            hubspot_connected = False
-        
-        health_status = {
-            "status": "healthy" if hubspot_connected else "degraded",
-            "services": {
-                "hubspot_connection": "connected" if hubspot_connected else "disconnected",
-                "extraction": "available",
-                "transformation": "available",
-                "data_quality": "available"
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return health_status
-        
-    except Exception as e:
-        logger.error(f"Errore health check connector: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Health check connector")
+    return {
+        "status": "healthy",
+        "services": {
+            "extraction": "available",
+            "transformation": "available",
+        },
+        "timestamp": datetime.now().isoformat()
+    }
 
-@router.get("/status/last-extraction")
+@router.get("/status/last-extraction", status_code=204)
 async def get_last_extraction_status():
     """
     Ottiene lo stato dell'ultima estrazione.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta stato ultima estrazione")
-        
-        # Placeholder - in produzione si recupererebbe lo stato reale
-        status = {
-            "last_extraction": {
-                "timestamp": "2024-01-15T10:30:00Z",
-                "status": "completed",
-                "deals_extracted": 1500,
-                "contacts_extracted": 800,
-                "companies_extracted": 200
-            },
-            "next_scheduled": "2024-01-16T10:30:00Z",
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return status
-        
-    except Exception as e:
-        logger.error(f"Errore stato ultima estrazione: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta stato ultima estrazione - Dati non disponibili o implementazione assente.")
+    return
 
-@router.get("/data/summary")
+@router.get("/data/summary", status_code=204)
 async def get_data_summary():
     """
     Ottiene un riepilogo dei dati.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta riepilogo dati")
-        
-        # Placeholder - in produzione si calcolerebbe il riepilogo reale
-        summary = {
-            "data_summary": {
-                "total_deals": 5000,
-                "total_contacts": 3000,
-                "total_companies": 800,
-                "event_log_records": 25000,
-                "last_updated": "2024-01-15T10:30:00Z"
-            },
-            "data_quality": {
-                "schema_validations": 100,
-                "completeness_score": 0.95,
-                "consistency_score": 0.92
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return summary
-        
-    except Exception as e:
-        logger.error(f"Errore riepilogo dati: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta riepilogo dati - Dati non disponibili o implementazione assente.")
+    return
 
-@router.get("/properties/available")
+@router.get("/properties/available", status_code=204)
 async def get_available_properties():
     """
     Ottiene le proprietà disponibili per l'estrazione.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta proprietà disponibili")
-        
-        # Placeholder - in produzione si recupererebbero le proprietà reali da HubSpot
-        properties = {
-            "deal_properties": [
-                "dealname",
-                "amount",
-                "closedate", 
-                "pipeline",
-                "dealstage",
-                "hubspot_owner_id"
-            ],
-            "contact_properties": [
-                "email",
-                "firstname",
-                "lastname",
-                "phone",
-                "company"
-            ],
-            "company_properties": [
-                "name",
-                "domain",
-                "industry",
-                "annualrevenue"
-            ],
-            "properties_with_history": [
-                "dealstage",
-                "pipeline",
-                "hubspot_owner_id"
-            ],
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return properties
-        
-    except Exception as e:
-        logger.error(f"Errore proprietà disponibili: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta proprietà disponibili - Dati non disponibili o implementazione assente.")
+    return
 
 # Task management endpoints
 @router.get("/tasks/{task_id}/status")
@@ -458,53 +364,20 @@ async def cancel_task(task_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Configuration endpoints
-@router.get("/config/hubspot")
+@router.get("/config/hubspot", status_code=204)
 async def get_hubspot_config():
     """
     Ottiene la configurazione HubSpot.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta configurazione HubSpot")
-        
-        # Placeholder - in produzione si recupererebbe la configurazione reale
-        config = {
-            "hubspot_config": {
-                "api_key_set": True,
-                "base_url": "https://api.hubapi.com",
-                "rate_limit": "100 requests/10 seconds",
-                "timeout": "30 seconds"
-            },
-            "extraction_config": {
-                "batch_size": 100,
-                "max_retries": 3,
-                "retry_delay": 60
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return config
-        
-    except Exception as e:
-        logger.error(f"Errore configurazione HubSpot: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta configurazione HubSpot - Dati non disponibili o implementazione assente.")
+    return
 
-@router.put("/config/hubspot")
+@router.put("/config/hubspot", status_code=204)
 async def update_hubspot_config(config: Dict[str, Any]):
     """
     Aggiorna la configurazione HubSpot.
+    NOTA: Attualmente non implementato, restituisce 204.
     """
-    try:
-        logger.info("Richiesta aggiornamento configurazione HubSpot")
-        
-        # Placeholder - in produzione si aggiornerebbe la configurazione reale
-        update_result = {
-            "config_updated": True,
-            "updated_fields": list(config.keys()),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return update_result
-        
-    except Exception as e:
-        logger.error(f"Errore aggiornamento configurazione HubSpot: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta aggiornamento configurazione HubSpot - non implementato.")
+    return

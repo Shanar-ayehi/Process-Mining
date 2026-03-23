@@ -2,7 +2,6 @@ from typing import Dict, List, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from datetime import datetime
-import polars as pl
 
 from app.services.mining.discovery_service import discovery_service
 from app.services.mining.conformance_service import conformance_service
@@ -300,98 +299,32 @@ async def generate_mining_report(analysis_results: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Direct endpoints (sincroni)
-@router.get("/kpis/summary")
+@router.get("/kpis/summary", status_code=204)
 async def get_kpi_summary():
     """
     Ottiene un riepilogo KPI sincrono.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta riepilogo KPI sincrono")
-        
-        # Placeholder - in produzione si caricherebbe l'event log
-        # e si calcolerebbero i KPI in modo sincrono
-        
-        summary = {
-            "overall_score": 0.85,
-            "basic_kpis": {
-                "total_cases": 1000,
-                "total_activities": 5000,
-                "unique_activities": 15
-            },
-            "performance_kpis": {
-                "avg_lead_time_hours": 48.5,
-                "min_lead_time_hours": 2.0,
-                "max_lead_time_hours": 360.0
-            },
-            "quality_kpis": {
-                "quality_score": 0.92,
-                "missing_timestamps": 5,
-                "missing_case_ids": 0
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return summary
-        
-    except Exception as e:
-        logger.error(f"Errore riepilogo KPI sincrono: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta riepilogo KPI sincrono - Dati non disponibili o implementazione assente.")
+    return
 
-@router.get("/conformance/fitness")
+@router.get("/conformance/fitness", status_code=204)
 async def get_conformance_fitness():
     """
     Ottiene fitness e precision sincroni.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta fitness e precision sincroni")
-        
-        # Placeholder - in produzione si calcolerebbero i valori reali
-        fitness_precision = {
-            "fitness": 0.88,
-            "precision": 0.82,
-            "harmonic_mean": 0.85,
-            "model_type": "dfg",
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return fitness_precision
-        
-    except Exception as e:
-        logger.error(f"Errore fitness e precision sincroni: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta fitness e precision sincroni - Dati non disponibili o implementazione assente.")
+    return
 
-@router.get("/variants/top")
+@router.get("/variants/top", status_code=204)
 async def get_top_variants():
     """
     Ottiene le varianti più comuni.
+    NOTA: Attualmente non implementato, restituisce 204 se non ci sono dati pronti.
     """
-    try:
-        logger.info("Richiesta varianti più comuni")
-        
-        # Placeholder - in produzione si calcolerebbero le varianti reali
-        top_variants = {
-            "variants": [
-                {
-                    "variant": ["Activity A", "Activity B", "Activity C"],
-                    "frequency": 0.45,
-                    "cases": 450
-                },
-                {
-                    "variant": ["Activity A", "Activity C", "Activity B"],
-                    "frequency": 0.30,
-                    "cases": 300
-                }
-            ],
-            "total_variants": 8,
-            "covered_cases": 0.85,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return top_variants
-        
-    except Exception as e:
-        logger.error(f"Errore varianti più comuni: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    logger.info("Richiesta varianti più comuni - Dati non disponibili o implementazione assente.")
+    return
 
 # Health check endpoint
 @router.get("/health")

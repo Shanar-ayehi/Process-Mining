@@ -189,9 +189,7 @@ cython_debug/
 .clineignore
 .clinerules
 
-# LaTeX
-*.tex
-*.bib
+# LaTeX auxiliary files
 *.bbl
 *.bcf
 *.fls
@@ -200,9 +198,11 @@ cython_debug/
 *.fdb_latexmk
 *.xml
 *.synctex.gz
-*.pdf
 *.toc
 *.blg
 
 # Datas
 data/
+
+# Cache Python
+*__pycache__/

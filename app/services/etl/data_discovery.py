@@ -412,5 +412,3 @@ class AutoDiscoveryService:
         from datetime import datetime
         return datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# Creazione istanza globale
-auto_discovery_service = AutoDiscoveryService()
