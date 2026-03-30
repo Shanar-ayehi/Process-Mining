@@ -37,6 +37,7 @@ aiofiles = "^25.1.0"
 # SECURITY & AUTHENTICATION
 python-jose = {extras = ["cryptography"], version = "*"}
 passlib = {extras = ["bcrypt"], version = "*"}
+simpy = "^4.1.1"
 
 [tool.poetry.group.dq.dependencies]
 # DATA QUALITY & GOVERNANCE
