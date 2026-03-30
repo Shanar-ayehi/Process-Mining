@@ -1,38 +1,43 @@
-# Process Mining React UI
+# Process Mining React UI - Dashboard Interattiva
 
-Interfaccia utente React per il sistema Process Mining, progettata per essere integrata in HubSpot tramite External Cards.
+Interfaccia utente React per il sistema Process Mining con **React Flow** per visualizzazione interattiva dei processi e funzionalità **What-If Analysis**.
 
 ## Panoramica
 
 Questa UI fornisce un'interfaccia web professionale per:
 
-- **Visualizzazione Processi**: Lista di tutti i processi/workflow disponibili
-- **Analisi Processi**: Avvio e monitoraggio dell'analisi dei processi
-- **Dashboard Interattive**: Grafici e visualizzazioni dei risultati
-- **Gestione Varianti**: Visualizzazione delle diverse varianti di ogni processo
+- **Dashboard Interattiva**: Canvas full-screen con grafo processo usando React Flow
+- **Visualizzazione Processi**: Nodi custom con badge automazioni HubSpot ⚡️
+- **Filtro Rumore**: Slider continuo per filtrare archi per frequenza
+- **What-If Analysis**: Sidebar per modificare tempi e automazioni
+- **Simulazione**: Progress indicator per simulazioni asincrone
 
 ## Struttura del Progetto
 
 ```
 frontend/
 ├── src/
-│   ├── components/          # Componenti React
-│   │   ├── ProcessList.tsx  # Lista dei processi
-│   │   ├── ProcessDetail.tsx # Dettagli processo
-│   │   └── ProcessAnalysis.tsx # Analisi processo
-│   ├── App.tsx               # Componente principale
-│   ├── main.tsx              # Entry point
-│   └── index.css             # Stili globali
-├── package.json              # Dipendenze e script
-├── vite.config.ts            # Configurazione Vite
-├── tsconfig.json             # Configurazione TypeScript
-└── README.md                 # Questo file
+│   ├── components/              # Componenti React
+│   │   ├── ProcessList.tsx      # Lista processi con statistiche
+│   │   ├── ProcessAnalysis.tsx  # Canvas React Flow full-screen
+│   │   ├── CustomNode.tsx       # Nodo custom con badge automazioni
+│   │   ├── WhatIfSidebar.tsx    # Sidebar What-If Analysis
+│   │   └── ProcessDetail.tsx    # Dettaglio processo
+│   ├── services/
+│   │   └── auth.ts              # Servizio autenticazione
+│   ├── App.tsx                  # Routing principale con ReactFlowProvider
+│   ├── main.tsx                 # Entry point
+│   └── index.css                # Stili (inclusi React Flow)
+├── package.json                 # Dipendenze (incluso @xyflow/react)
+├── vite.config.ts               # Configurazione Vite
+├── tsconfig.json                # Configurazione TypeScript
+└── README.md                    # Questo file
 ```
 
 ## Installazione
 
 ### Prerequisiti
-- Node.js 18+ 
+- Node.js 18+
 - npm o yarn
 
 ### Setup
@@ -54,7 +59,7 @@ npm run dev
 yarn dev
 ```
 
-L'app sarà disponibile su `http://localhost:3000`
+L'app sarà disponibile su `http://localhost:5173`
 
 ## Build per Produzione
 
@@ -80,7 +85,122 @@ echo "VITE_API_URL=http://localhost:8000/api/v1" > .env
 
 ### Variabili d'ambiente
 - `VITE_API_URL`: URL del backend API
-- `VITE_HUBSPOT_APP_ID`: ID app HubSpot (se necessario)
+
+## Componenti Principali
+
+### ProcessList
+- **Funzione**: Mostra lista processi disponibili
+- **Features**:
+  - Ricerca e filtro per nome/descrizione
+  - Statistiche riassuntive (processi totali, attivi, varianti)
+  - Cards con informazioni processo (varianti, casi, attività, tempo medio)
+  - Quality score con progress bar
+  - Avvio analisi processi (apre nuova tab)
+
+### ProcessAnalysis ← **NUOVO**
+- **Funzione**: Canvas interattivo full-screen con React Flow
+- **Features**:
+  - **React Flow Canvas**: Visualizzazione grafo processo a schermo intero
+  - **Nodi Custom**: Con badge automazioni ⚡️ e tempo medio
+  - **Filtro Frequenza**: Slider continuo 0-100% per filtrare archi
+  - **Stats Chips**: Conteggio nodi Start, End, Automazioni
+  - **MiniMap**: Navigazione stile Google Maps
+  - **Controls**: Zoom, pan, fit view
+  - **Background**: Griglia per riferimento visivo
+  - **Click Nodo**: Apre sidebar What-If
+
+### CustomNode ← **NUOVO**
+- **Funzione**: Nodo custom per React Flow
+- **Features**:
+  - Badge ⚡️ se nodo ha automazioni HubSpot
+  - Visualizzazione tempo medio attività
+  - Colori diversi per tipo nodo (verde=start, rosso=blu=normal)
+  - Chip con tipo nodo (START, END, NORMAL)
+  - Contatore automazioni attive
+  - Click apre sidebar What-If
+
+### WhatIfSidebar ← **NUOVO**
+- **Funzione**: Pannello laterale per analisi What-If
+- **Features**:
+  - **Informazioni Nodo**: Nome, tipo, tempo medio
+  - **Automazioni HubSpot**: Lista workflow con toggle on/off
+  - **Controlli What-If**:
+    - Slider moltiplicatore tempo (10%-200%)
+    - Override delay automazioni (0-30 giorni)
+  - **Simulazione**:
+    - Bottone "Simula Scenario"
+    - Progress bar con percentuale
+    - Alert risultato (successo/errore)
+  - **Riepilogo Modifiche**: Riepilogo delle modifiche applicate
+  - **Chiusura**: Bottone X o click su background canvas
+
+### ProcessDetail
+- **Funzione**: Dettagli processo specifico
+- **Features**:
+  - Informazioni processo
+  - Varianti processo
+  - Metriche KPI
+  - Storico analisi
+
+## API Endpoints Utilizzati
+
+### Process Management
+- `GET /api/v1/processes` - Lista processi
+- `GET /api/v1/processes/{id}` - Dettagli processo
+- `POST /api/v1/processes/{id}/analyze` - Avvia analisi
+- `GET /api/v1/processes/{id}/analysis/status` - Stato analisi
+- `GET /api/v1/processes/{id}/analysis/results` - Risultati analisi
+- `GET /api/v1/processes/{id}/variants` - Varianti processo
+
+### Mining (Nuovi)
+- `GET /api/v1/mining/discover/dfg-with-automations/{id}` - DFG con automazioni
+- `POST /api/v1/analytics/simulate` - Simulazione What-If
+- `POST /api/v1/analytics/simulate/compare` - Confronto scenari
+
+## Dipendenze Principali
+
+### UI Framework
+- **@mui/material**: Componenti Material-UI
+- **@mui/icons-material**: Icone Material-UI
+
+### Grafi Interattivi ← **NUOVO**
+- **@xyflow/react**: React Flow per visualizzazione grafi
+  - Canvas interattivo con zoom/pan
+  - Nodi e archi customizzabili
+  - MiniMap e Controls
+  - Auto-layout
+
+### HTTP Client
+- **axios**: Chiamate API REST
+
+### Routing
+- **react-router-dom**: Navigazione SPA
+
+## Stili e Design
+
+### Material-UI
+L'interfaccia utilizza Material-UI per un design professionale e responsive.
+
+### React Flow Styles
+Gli stili di React Flow sono in `src/index.css`:
+```css
+.react-flow {
+  background-color: #fafafa;
+}
+
+.react-flow__node-custom {
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.react-flow__controls {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+```
+
+### Personalizzazione
+Modifica i temi in `src/App.tsx` per personalizzare colori e stili.
 
 ## Integrazione HubSpot
 
@@ -98,72 +218,18 @@ echo "VITE_API_URL=http://localhost:8000/api/v1" > .env
 3. **Sicurezza**:
    - HTTPS obbligatorio per HubSpot
    - Configura CORS nel backend
-   - Considera autenticazione OAuth 2.0
+   - OAuth 2.0 con scope `automation`
 
 ### Esempio Configurazione HubSpot
 ```json
 {
   "name": "Process Mining Dashboard",
-  "description": "Dashboard per l'analisi dei processi aziendali",
+  "description": "Dashboard per l'analisi dei processi aziendali con What-If Analysis",
   "iframe_url": "https://tuodominio.com/process-mining-ui",
   "width": 1200,
   "height": 800,
-  "permissions": ["read_deals", "read_contacts"]
+  "permissions": ["read_deals", "read_contacts", "automation"]
 }
-```
-
-## Componenti Principali
-
-### ProcessList
-- **Funzione**: Mostra lista processi disponibili
-- **Features**: 
-  - Ricerca e filtro
-  - Statistiche riassuntive
-  - Avvio analisi processi
-  - Stato processi in tempo reale
-
-### ProcessDetail  
-- **Funzione**: Dettagli processo specifico
-- **Features**:
-  - Informazioni processo
-  - Varianti processo
-  - Metriche KPI
-  - Storico analisi
-
-### ProcessAnalysis
-- **Funzione**: Monitoraggio analisi processo
-- **Features**:
-  - Stato analisi in tempo reale
-  - Risultati analisi
-  - Visualizzazioni grafiche
-  - Download report
-
-## API Endpoints Utilizzati
-
-### Process Management
-- `GET /api/v1/processes` - Lista processi
-- `GET /api/v1/processes/{id}` - Dettagli processo
-- `POST /api/v1/processes/{id}/analyze` - Avvia analisi
-- `GET /api/v1/processes/{id}/analysis/status` - Stato analisi
-- `GET /api/v1/processes/{id}/analysis/results` - Risultati analisi
-- `GET /api/v1/processes/{id}/variants` - Varianti processo
-
-## Stili e Design
-
-### Material-UI
-L'interfaccia utilizza Material-UI per un design professionale e responsive.
-
-### Personalizzazione
-Modifica i temi in `src/theme.ts` per personalizzare colori e stili:
-
-```typescript
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#your-color',
-    },
-  },
-});
 ```
 
 ## Deploy
@@ -185,6 +251,15 @@ const theme = createTheme({
 3. **Configura variabili d'ambiente**
 4. **Deploy automatico**
 
+### Docker
+```bash
+# Build immagine
+docker build -t process-mining-frontend .
+
+# Run container
+docker run -p 5173:5173 process-mining-frontend
+```
+
 ## Monitoraggio e Debug
 
 ### Logging
@@ -194,6 +269,7 @@ const theme = createTheme({
 
 ### Strumenti
 - **React DevTools**: Debug componenti
+- **React Flow DevTools**: Debug grafi
 - **Network Tab**: Monitoraggio API calls
 - **Console**: Errori e log
 
@@ -208,7 +284,7 @@ const theme = createTheme({
 ### HubSpot Requirements
 - iframe sandboxing
 - Content Security Policy
-- OAuth 2.0 authentication
+- OAuth 2.0 authentication con scope `automation`
 
 ## Contribuire
 
@@ -224,3 +300,4 @@ Per supporto e domande:
 - Crea issue su GitHub
 - Controlla la documentazione HubSpot
 - Verifica configurazione API
+- Consulta docs/HUBSPOT_INTEGRATION.md per dettagli integrazione

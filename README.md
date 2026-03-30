@@ -1,16 +1,13 @@
-# Process Mining System - FastAPI Backend
+# Process Mining System - FastAPI Backend & React Frontend
 
 ## Descrizione del Progetto
 
-Sistema Process Mining basato su **FastAPI** per l'analisi dei processi aziendali, con integrazione HubSpot tramite OAuth 2.0.
+Sistema Process Mining completo basato su **FastAPI** (backend) e **React** (frontend) per l'analisi dei processi aziendali con integrazione HubSpot tramite OAuth 2.0.
 
 **Stack Tecnologico:**
-- Python 3.12
-- FastAPI + Uvicorn
-- PM4Py (Process Mining)
-- Celery + Redis (Task asincroni)
-- SQLite (Database)
-- Docker (Containerizzazione)
+- **Backend**: Python 3.12, FastAPI + Uvicorn, PM4Py, SimPy, Celery + Redis, SQLite
+- **Frontend**: React 18, TypeScript, @xyflow/react (React Flow), Material-UI, Vite
+- **Integrazione**: HubSpot OAuth 2.0 con scope `automation` per workflow
 
 ## Architettura del Sistema
 
@@ -18,29 +15,44 @@ Sistema Process Mining basato su **FastAPI** per l'analisi dei processi aziendal
 
 1. **API REST (FastAPI)**
    - Endpoint per autenticazione OAuth 2.0
-   - Connessione HubSpot CRM
+   - Connessione HubSpot CRM con estrazione workflow
    - Process Discovery e Conformance Checking
+   - Simulation Engine per What-If Analysis
    - Data Quality e Privacy Governance
 
-2. **ETL Pipeline**
-   - Estrazione dati da HubSpot (Deal, Contact, Company)
+2. **Dashboard Globale (React + React Flow)**
+   - Canvas interattivo full-screen con grafo processo
+   - Nodi custom con badge automazioni HubSpot
+   - Filtro frequenza archi (slider continuo)
+   - Sidebar What-If Analysis
+   - MiniMap, Controls e Background per navigazione
+
+3. **ETL Pipeline**
+   - Estrazione dati da HubSpot (Deal, Contact, Company, Workflows)
    - Trasformazione in event log
    - Validazione qualità dati
    - Pseudonimizzazione GDPR
 
-3. **Process Mining Engine**
-   - DFG (Directly-Follows Graph)
+4. **Process Mining Engine**
+   - DFG (Directly-Follows Graph) con automazioni mappate
    - Alpha Miner, Heuristic Miner, Inductive Miner
    - Analisi varianti processo
    - Calcolo KPI
 
-4. **Task Asincroni (Celery)**
+5. **Simulation Engine (SimPy)**
+   - Simulazione What-If Analysis asincrona
+   - Modifica tempi di esecuzione nodi
+   - Modifica probabilità di transizione
+   - Disabilitazione/override automazioni HubSpot
+   - Task asincroni con Celery
+
+6. **Task Asincroni (Celery + Redis)**
    - Elaborazione ETL in background
    - Mining processi asincrono
+   - Simulazione What-If asincrona
    - Controllo qualità periodico
-   - Redis come message broker
 
-5. **Privacy e GDPR**
+7. **Privacy e GDPR**
    - Pseudonimizzazione email
    - Data retention policy
    - Audit log accessi
@@ -54,14 +66,15 @@ Process-Mining/
 ├── app/
 │   ├── api/                         # API REST
 │   │   ├── main.py                  # App FastAPI
-│   │   ├── routes_connector.py      # Endpoint HubSpot
-│   │   ├── routes_mining.py         # Endpoint mining
+│   │   ├── routes_connector.py      # Endpoint HubSpot (incluso workflow)
+│   │   ├── routes_mining.py         # Endpoint mining (incluso DFG con automazioni)
+│   │   ├── routes_analytics.py      # Endpoint analytics (simulazione What-If)
 │   │   ├── routes_dq.py             # Endpoint data quality
 │   │   ├── routes_process_management.py  # Gestione processi
-│   │   ├── routes/auth.py           # Autenticazione OAuth
+│   │   ├── routes/auth.py           # Autenticazione OAuth (scope automation)
 │   │   └── routes_external_cards.py # External cards
 │   ├── connectors/                  # Connettori esterni
-│   │   ├── hubspot_client.py        # Client HubSpot OAuth
+│   │   ├── hubspot_client.py        # Client HubSpot OAuth (incluso get_workflows)
 │   │   └── hubspot_mapper.py        # Mapping dati
 │   ├── core/                        # Funzionalità core
 │   │   ├── config.py                # Configurazione
@@ -72,28 +85,42 @@ Process-Mining/
 │   │   └── integration.py           # Test integrazione
 │   ├── services/                    # Logica business
 │   │   ├── etl/                     # Servizi ETL
-│   │   │   ├── data_extraction.py   # Estrazione dati
+│   │   │   ├── data_extraction.py   # Estrazione dati (incluso workflow)
 │   │   │   ├── data_transformation.py # Trasformazione
 │   │   │   ├── data_quality.py      # Qualità dati
 │   │   │   └── privacy_governance.py # Privacy
-│   │   └── mining/                  # Servizi mining
-│   │       ├── discovery_service.py # Process Discovery
-│   │       ├── conformance_service.py # Conformance
-│   │       └── kpi_service.py       # Calcolo KPI
+│   │   ├── mining/                  # Servizi mining
+│   │   │   ├── discovery_service.py # Process Discovery (con mapping automazioni)
+│   │   │   ├── conformance_service.py # Conformance
+│   │   │   └── kpi_service.py       # Calcolo KPI
+│   │   └── analytics/               # Servizi analytics
+│   │       └── simulation_service.py # Simulation Engine (SimPy)
 │   ├── tasks/                       # Task Celery
 │   │   ├── worker.py                # Worker Celery
-│   │   ├── etl_task.py              # Task ETL
+│   │   ├── etl_task.py              # Task ETL (incluso workflow)
 │   │   ├── mining_task.py           # Task mining
+│   │   ├── analytics_task.py        # Task simulazione What-If
 │   │   └── dq_task.py               # Task data quality
 │   └── models/                      # Modelli database
 │       └── auth.py                  # Modelli autenticazione
+├── frontend/                        # React Frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ProcessList.tsx      # Lista processi
+│   │   │   ├── ProcessAnalysis.tsx  # Canvas React Flow
+│   │   │   ├── CustomNode.tsx       # Nodo custom con badge automazioni
+│   │   │   ├── WhatIfSidebar.tsx    # Sidebar What-If Analysis
+│   │   │   └── ProcessDetail.tsx    # Dettaglio processo
+│   │   ├── App.tsx                  # Routing principale
+│   │   └── index.css                # Stili (inclusi React Flow)
+│   └── package.json                 # Dipendenze (incluso @xyflow/react)
 ├── data/                            # Directory dati
-│   ├── raw/                         # Dati grezzi
+│   ├── raw/                         # Dati grezzi (inclusi workflow JSON)
 │   ├── processed/                   # Dati processati
 │   └── warehouse/                   # Data warehouse
 ├── logs/                            # Log sistema
 ├── docker-compose.yml               # Configurazione Docker
-├── pyproject.toml                   # Configurazione Python
+├── pyproject.toml                   # Configurazione Python (incluso SimPy)
 └── README.md                        # Questo file
 ```
 
@@ -101,10 +128,11 @@ Process-Mining/
 
 ### Prerequisiti
 - Python 3.12+
+- Node.js 18+
 - Docker & Docker Compose (opzionale)
 - HubSpot Developer Account (per integrazione reale)
 
-### Setup Locale
+### Setup Backend
 
 1. **Clona repository**
    ```bash
@@ -112,7 +140,7 @@ Process-Mining/
    cd Process-Mining
    ```
 
-2. **Installa dipendenze**
+2. **Installa dipendenze Python**
    ```bash
    poetry install
    ```
@@ -128,13 +156,31 @@ Process-Mining/
    EMAIL_HASH_SALT=your_salt_here
    ```
 
-4. **Avvia sistema**
+4. **Avvia backend**
    ```bash
-   # Avvia API FastAPI
    python main.py
-   
-   # Avvia worker Celery (opzionale)
-   poetry run celery -A app.tasks.worker.celery_app worker --loglevel=info
+   ```
+
+### Setup Frontend
+
+1. **Entra nella directory frontend**
+   ```bash
+   cd frontend
+   ```
+
+2. **Installa dipendenze Node**
+   ```bash
+   npm install
+   ```
+
+3. **Configura variabili ambiente**
+   ```bash
+   echo "VITE_API_URL=http://localhost:8000/api/v1" > .env
+   ```
+
+4. **Avvia frontend**
+   ```bash
+   npm run dev
    ```
 
 ### Docker Setup
@@ -153,7 +199,7 @@ docker-compose logs -f
 ## API Endpoints
 
 ### Autenticazione
-- `GET /api/v1/auth/hubspot/login` - Inizio OAuth
+- `GET /api/v1/auth/hubspot/login` - Inizio OAuth (scope `automation`)
 - `GET /api/v1/auth/callback` - Callback OAuth
 - `POST /api/v1/auth/refresh` - Refresh token
 - `GET /api/v1/auth/status` - Stato autenticazione
@@ -163,12 +209,19 @@ docker-compose logs -f
 - `GET /api/v1/connector/contacts` - Lista contatti
 - `GET /api/v1/connector/companies` - Lista aziende
 - `GET /api/v1/connector/pipeline-stages` - Fasi pipeline
+- `GET /api/v1/connector/workflows` - Workflow HubSpot
 
 ### Mining Processi
 - `POST /api/v1/mining/discover` - Process Discovery
+- `GET /api/v1/mining/discover/dfg-with-automations/{id}` - DFG con automazioni
 - `POST /api/v1/mining/conformance` - Conformance Checking
 - `GET /api/v1/mining/variants` - Analisi varianti
 - `GET /api/v1/mining/kpi` - Calcolo KPI
+
+### Analytics e Simulazione
+- `POST /api/v1/analytics/simulate` - Simulazione What-If
+- `POST /api/v1/analytics/simulate/compare` - Confronto scenari
+- `GET /api/v1/analytics/health` - Health check analytics
 
 ### Data Quality
 - `POST /api/v1/dq/validate` - Validazione dati
@@ -180,39 +233,28 @@ docker-compose logs -f
 - `GET /api/v1/processes/{id}` - Dettaglio processo
 - `POST /api/v1/processes/analyze` - Analisi processo
 
-## Configurazione
+## Configurazione HubSpot
 
-### Variabili Ambiente
+### Scopes Necessari
 ```bash
-# HubSpot OAuth
-HUBSPOT_CLIENT_ID=your_client_id
-HUBSPOT_CLIENT_SECRET=your_client_secret
-HUBSPOT_REDIRECT_URI=http://localhost:8000/api/v1/auth/callback
-
-# Database
-DATABASE_URL=sqlite:///./app/data/process_mining.db
-
-# Celery
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-
-# Privacy
-EMAIL_HASH_SALT=your_salt_here
-DATA_RETENTION_DAYS=365
-PSEUDONYMIZATION_ENABLED=true
+crm.objects.deals.read
+crm.objects.deals.write
+crm.objects.contacts.read
+crm.objects.contacts.write
+crm.objects.companies.read
+timeline
+settings.users.read
+automation
 ```
 
-### Configurazione HubSpot
+### Configurazione App
 1. Crea app su [developers.hubspot.com](https://developers.hubspot.com)
-2. Configura OAuth 2.0 con scopes:
-   - `crm.objects.deals.read`
-   - `crm.objects.contacts.read`
-   - `crm.objects.companies.read`
+2. Configura OAuth 2.0 con tutti gli scopes
 3. Configura Redirect URI: `http://localhost:8000/api/v1/auth/callback`
 
 ## Testing
 
-### Test Sistema
+### Test Backend
 ```bash
 # Test integrazione completo
 python -c "from app.core.integration import run_full_system_test_sync; run_full_system_test_sync()"
@@ -232,22 +274,6 @@ curl http://localhost:8000/health
 
 # Test endpoint
 curl http://localhost:8000/api/v1/auth/status
-```
-
-## Monitoraggio
-
-### Log Sistema
-- `logs/app.log`: Log principale
-- `logs/integration_tests/`: Risultati test
-- `logs/bootstrap_results/`: Risultati bootstrap
-
-### Health Check
-```bash
-# Verifica stato sistema
-curl http://localhost:8000/health
-
-# Stato endpoint
-curl http://localhost:8000/
 ```
 
 ## Deployment
@@ -280,49 +306,6 @@ server {
 }
 ```
 
-## Troubleshooting
-
-### Problemi Comuni
-
-#### Autenticazione HubSpot
-```bash
-# Verifica variabili
-echo $HUBSPOT_CLIENT_ID
-echo $HUBSPOT_CLIENT_SECRET
-
-# Test connessione
-curl http://localhost:8000/api/v1/auth/status
-```
-
-#### Database SQLite
-```bash
-# Verifica database
-ls -la app/data/
-
-# Ricrea database
-rm app/data/process_mining.db
-python main.py
-```
-
-#### Celery Worker
-```bash
-# Verifica Redis
-redis-cli ping
-
-# Avvia worker debug
-poetry run celery -A app.tasks.worker.celery_app worker --loglevel=debug
-```
-
-### Debug Mode
-```bash
-# Log dettagliato
-export LOG_LEVEL=DEBUG
-python main.py
-
-# Test specifico
-poetry run pytest tests/test_etl.py::test_extraction -v -s
-```
-
 ## Contribuire
 
 1. Fork repository
@@ -339,5 +322,7 @@ MIT License - Vedere file LICENSE
 
 - **FastAPI**: https://fastapi.tiangolo.com
 - **PM4Py**: https://pm4py.fit.fraunhofer.de
+- **SimPy**: https://simpy.readthedocs.io
+- **React Flow**: https://reactflow.dev
 - **Celery**: https://docs.celeryq.dev
 - **HubSpot API**: https://developers.hubspot.com

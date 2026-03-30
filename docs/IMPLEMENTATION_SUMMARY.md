@@ -2,7 +2,7 @@
 
 ## Panoramica del Progetto
 
-Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2.0 per l'analisi dei processi aziendali.
+Sistema Process Mining completo basato su **FastAPI** (backend) e **React** (frontend) che integra HubSpot tramite OAuth 2.0 per l'analisi dei processi aziendali con funzionalità avanzate di simulazione What-If.
 
 ## Architettura del Sistema
 
@@ -13,9 +13,15 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - **Porta**: 8000
 - **Struttura**: Modulare con separazione tra API, servizi e core
 
+### Frontend (React)
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Librerie**: @xyflow/react (React Flow), Material-UI, Axios
+- **Porta**: 5173 (default Vite)
+
 ### Integrazione HubSpot
 - **Metodo**: OAuth 2.0
-- **Autenticazione**: HubSpot OAuth 2.0
+- **Scope**: Incluso `automation` per workflow
 - **Client**: `app/connectors/hubspot_client.py`
 - **Database**: SQLite per storage token
 
@@ -23,6 +29,13 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - **Library**: PM4Py
 - **Algoritmi**: DFG, Alpha Miner, Heuristic Miner, Inductive Miner
 - **Analisi**: Conformance Checking, Variant Analysis, KPI Calculation
+- **Integrazione**: Mapping automazioni sui nodi del grafo
+
+### Simulation Engine
+- **Library**: SimPy
+- **Funzionalità**: What-If Analysis asincrona
+- **Modifiche**: Tempi, probabilità, automazioni
+- **Task**: Esecuzione asincrona con Celery
 
 ## Componenti Implementati
 
@@ -36,9 +49,10 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - **Sicurezza**: CORS, gestione errori
 
 #### API Endpoints
-- **Autenticazione**: OAuth 2.0 flow completo
-- **Connector**: Estrazione dati HubSpot
-- **Mining**: Process Discovery e Conformance
+- **Autenticazione**: OAuth 2.0 flow completo (scope `automation`)
+- **Connector**: Estrazione dati HubSpot (incluso workflows)
+- **Mining**: Process Discovery con automazioni mappate
+- **Analytics**: Simulazione What-If
 - **Data Quality**: Validazione e report
 - **Process Management**: Gestione processi
 
@@ -55,6 +69,7 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
   - `get_companies()`: Estrazione aziende
   - `get_pipeline_stages()`: Estrazione pipeline
   - `get_timeline_events()`: Estrazione eventi
+  - `get_workflows()`: Estrazione workflow di automazione
 
 #### HubSpot Mapper (`app/connectors/hubspot_mapper.py`)
 - Mapping proprietà HubSpot → event log
@@ -66,6 +81,7 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 #### Data Extraction (`app/services/etl/data_extraction.py`)
 - Estrazione deal con cronologia
 - Estrazione contatti e aziende
+- Estrazione workflow di automazione
 - Paginazione automatica
 - Salvataggio JSON con timestamp
 
@@ -90,11 +106,12 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 ### 4. Servizi Mining
 
 #### Discovery Service (`app/services/mining/discovery_service.py`)
-- **DFG**: Directly-Follows Graph
+- **DFG**: Directly-Follows Graph con automazioni mappate
 - **Alpha Miner**: Discovery con algoritmo Alpha
 - **Heuristic Miner**: Discovery con euristica
 - **Inductive Miner**: Discovery induttivo
 - **Variant Analysis**: Analisi varianti processo
+- **Mapping Automazioni**: `_map_workflows_to_nodes()` per associare workflow ai nodi
 
 #### Conformance Service (`app/services/mining/conformance_service.py`)
 - Conformance checking DFG
@@ -107,7 +124,16 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - Metriche performance
 - Analisi colli di bottiglia
 
-### 5. Task Asincroni (Celery)
+### 5. Servizi Analytics
+
+#### Simulation Service (`app/services/analytics/simulation_service.py`)
+- **Motore SimPy**: Simulazione processi discreta
+- **What-If Analysis**: Modifica tempi e probabilità
+- **Gestione Automazioni**: Disabilitazione/override workflow
+- **Calcolo Metriche**: Cycle time medio, improvement percentage
+- **Riproducibilità**: Seed configurabile per risultati deterministici
+
+### 6. Task Asincroni (Celery)
 
 #### Worker (`app/tasks/worker.py`)
 - Configurazione Celery
@@ -116,7 +142,7 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - Monitoring task
 
 #### Task ETL (`app/tasks/etl_task.py`)
-- Estrazione dati asincrona
+- Estrazione dati asincrona (incluso workflow)
 - Monitoraggio nuovi file
 - Elaborazione batch
 
@@ -125,11 +151,16 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - Conformance checking asincrono
 - Calcolo KPI asincrono
 
+#### Task Analytics (`app/tasks/analytics_task.py`)
+- Simulazione What-If asincrona
+- Confronto scenari
+- Progress tracking
+
 #### Task Data Quality (`app/tasks/dq_task.py`)
 - Validazione asincrona
 - Report qualità periodici
 
-### 6. Core System
+### 7. Core System
 
 #### Configurazione (`app/core/config.py`)
 - Variabili ambiente
@@ -159,10 +190,27 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - Health check componenti
 - Monitoring stato
 
+### 8. Frontend React
+
+#### Componenti
+- **ProcessList**: Lista processi con ricerca e statistiche
+- **ProcessAnalysis**: Canvas React Flow full-screen con grafo interattivo
+- **CustomNode**: Nodo custom con badge automazioni ⚡️
+- **WhatIfSidebar**: Sidebar per analisi What-If con slider e toggle
+- **ProcessDetail**: Dettaglio processo
+
+#### Funzionalità Dashboard
+- **React Flow Canvas**: Visualizzazione grafo processo
+- **Filtro Frequenza**: Slider continuo 0-100%
+- **Badge Automazioni**: ⚡️ sui nodi con workflow attivi
+- **Sidebar What-If**: Controlli per simulazione
+- **MiniMap**: Navigazione stile Google Maps
+- **Controls**: Zoom, pan, fit view
+
 ## API Endpoints Implementati
 
 ### Autenticazione
-- `GET /api/v1/auth/hubspot/login` - Inizio OAuth
+- `GET /api/v1/auth/hubspot/login` - Inizio OAuth (scope `automation`)
 - `GET /api/v1/auth/callback` - Callback OAuth
 - `POST /api/v1/auth/refresh` - Refresh token
 - `GET /api/v1/auth/status` - Stato autenticazione
@@ -172,16 +220,24 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - `GET /api/v1/connector/contacts` - Lista contatti
 - `GET /api/v1/connector/companies` - Lista aziende
 - `GET /api/v1/connector/pipeline-stages` - Fasi pipeline
+- `GET /api/v1/connector/workflows` - Workflow HubSpot
 
 ### Mining Processi
 - `POST /api/v1/mining/discover` - Process Discovery
+- `GET /api/v1/mining/discover/dfg-with-automations/{id}` - DFG con automazioni
 - `POST /api/v1/mining/conformance` - Conformance Checking
 - `GET /api/v1/mining/variants` - Analisi varianti
 - `GET /api/v1/mining/kpi` - Calcolo KPI
 
+### Analytics e Simulazione
+- `POST /api/v1/analytics/simulate` - Simulazione What-If
+- `POST /api/v1/analytics/simulate/compare` - Confronto scenari
+- `GET /api/v1/analytics/health` - Health check analytics
+
 ### Data Quality
 - `POST /api/v1/dq/validate` - Validazione dati
 - `GET /api/v1/dq/report` - Report qualità
+- `POST /api/v1/dq/fix` - Correzione dati
 
 ### Gestione Processi
 - `GET /api/v1/processes` - Lista processi
@@ -197,14 +253,24 @@ Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2
 - **SQLAlchemy**: ORM
 - **Pydantic**: Validazione dati
 - **PM4Py**: Process Mining library
+- **SimPy**: Simulation library
 - **Celery**: Task asincroni
 - **Redis**: Message broker
 - **httpx**: HTTP client asincrono
 
+### Frontend Stack
+- **React 18**: UI framework
+- **TypeScript**: Type safety
+- **Vite**: Build tool
+- **@xyflow/react**: Grafi interattivi (React Flow)
+- **Material-UI**: Componenti UI
+- **Axios**: HTTP client
+
 ### DevOps
 - **Docker**: Containerizzazione
 - **Docker Compose**: Orchestrazione
-- **Poetry**: Dependency management
+- **Poetry**: Dependency management (Python)
+- **npm**: Dependency management (Node.js)
 
 ## Struttura File System
 
@@ -214,14 +280,15 @@ Process-Mining/
 ├── app/
 │   ├── api/                         # API REST
 │   │   ├── main.py                  # App FastAPI
-│   │   ├── routes_connector.py      # Endpoint HubSpot
-│   │   ├── routes_mining.py         # Endpoint mining
+│   │   ├── routes_connector.py      # Endpoint HubSpot (incluso workflows)
+│   │   ├── routes_mining.py         # Endpoint mining (DFG con automazioni)
+│   │   ├── routes_analytics.py      # Endpoint analytics (simulazione)
 │   │   ├── routes_dq.py             # Endpoint data quality
 │   │   ├── routes_process_management.py  # Gestione processi
 │   │   ├── routes/auth.py           # Autenticazione OAuth
 │   │   └── routes_external_cards.py # External cards
 │   ├── connectors/                  # Connettori esterni
-│   │   ├── hubspot_client.py        # Client HubSpot OAuth
+│   │   ├── hubspot_client.py        # Client HubSpot OAuth (get_workflows)
 │   │   └── hubspot_mapper.py        # Mapping dati
 │   ├── core/                        # Funzionalità core
 │   │   ├── config.py                # Configurazione
@@ -231,26 +298,23 @@ Process-Mining/
 │   │   ├── bootstrap.py             # Bootstrap sistema
 │   │   └── integration.py           # Test integrazione
 │   ├── services/                    # Logica business
-│   │   ├── etl/                     # Servizi ETL
-│   │   │   ├── data_extraction.py   # Estrazione dati
-│   │   │   ├── data_transformation.py # Trasformazione
-│   │   │   ├── data_quality.py      # Qualità dati
-│   │   │   └── privacy_governance.py # Privacy
-│   │   └── mining/                  # Servizi mining
-│   │       ├── discovery_service.py # Process Discovery
-│   │       ├── conformance_service.py # Conformance
-│   │       └── kpi_service.py       # Calcolo KPI
-│   ├── tasks/                       # Task Celery
-│   │   ├── worker.py                # Worker Celery
-│   │   ├── etl_task.py              # Task ETL
-│   │   ├── mining_task.py           # Task mining
-│   │   └── dq_task.py               # Task data quality
+│   │   ├── etl/                     # Servizi ETL (incluso workflows)
+│   │   ├── mining/                  # Servizi mining (mapping automazioni)
+│   │   └── analytics/               # Servizi analytics (simulazione)
+│   ├── tasks/                       # Task Celery (incluso analytics)
 │   └── models/                      # Modelli database
-│       └── auth.py                  # Modelli autenticazione
+├── frontend/                        # React Frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ProcessList.tsx      # Lista processi
+│   │   │   ├── ProcessAnalysis.tsx  # Canvas React Flow
+│   │   │   ├── CustomNode.tsx       # Nodo custom con badge
+│   │   │   ├── WhatIfSidebar.tsx    # Sidebar What-If
+│   │   │   └── ProcessDetail.tsx    # Dettaglio processo
+│   │   ├── App.tsx                  # Routing
+│   │   └── index.css                # Stili
+│   └── package.json                 # Dipendenze
 ├── data/                            # Directory dati
-│   ├── raw/                         # Dati grezzi
-│   ├── processed/                   # Dati processati
-│   └── warehouse/                   # Data warehouse
 ├── logs/                            # Log sistema
 ├── docker-compose.yml               # Configurazione Docker
 ├── pyproject.toml                   # Configurazione Python
@@ -264,7 +328,7 @@ Process-Mining/
 1. **Backend FastAPI**
    - [x] API REST completa
    - [x] Database SQLite
-   - [x] Autenticazione OAuth 2.0
+   - [x] Autenticazione OAuth 2.0 (scope automation)
    - [x] Logging e monitoring
    - [x] Error handling
 
@@ -273,27 +337,46 @@ Process-Mining/
    - [x] Estrazione deal, contatti, aziende
    - [x] Pipeline stages
    - [x] Timeline events
+   - [x] **Workflow extraction** (get_workflows)
    - [x] Rate limiting
 
 3. **ETL Pipeline**
-   - [x] Estrazione dati
+   - [x] Estrazione dati (incluso workflows)
    - [x] Trasformazione event log
    - [x] Validazione qualità
    - [x] Privacy governance
 
 4. **Process Mining**
    - [x] Process Discovery (DFG, Alpha, Heuristic, Inductive)
+   - [x] **Mapping automazioni sui nodi**
    - [x] Conformance Checking
    - [x] Variant Analysis
    - [x] KPI Calculation
 
-5. **Task Asincroni**
+5. **Simulazione What-If**
+   - [x] **Simulation Engine (SimPy)**
+   - [x] **Modifica tempi nodi**
+   - [x] **Modifica probabilità transizione**
+   - [x] **Disabilitazione automazioni**
+   - [x] **Override delay automazioni**
+   - [x] **Task asincroni simulazione**
+
+6. **Dashboard Interattiva**
+   - [x] **React Flow Canvas**
+   - [x] **Nodi custom con badge automazioni**
+   - [x] **Filtro frequenza archi**
+   - [x] **Sidebar What-If Analysis**
+   - [x] **MiniMap e Controls**
+   - [x] **Progress indicator simulazione**
+
+7. **Task Asincroni**
    - [x] Celery worker
-   - [x] ETL tasks
+   - [x] ETL tasks (incluso workflows)
    - [x] Mining tasks
+   - [x] **Analytics tasks (simulazione)**
    - [x] Data quality tasks
 
-6. **Privacy e GDPR**
+8. **Privacy e GDPR**
    - [x] Pseudonimizzazione email
    - [x] Data retention policy
    - [x] Audit log
@@ -301,7 +384,7 @@ Process-Mining/
 
 ## Configurazione
 
-### Variabili Ambiente
+### Variabili Ambiente Backend
 ```bash
 # HubSpot OAuth
 HUBSPOT_CLIENT_ID=your_client_id
@@ -317,6 +400,12 @@ CELERY_BROKER_URL=redis://localhost:6379/0
 # Privacy
 EMAIL_HASH_SALT=your_salt_here
 DATA_RETENTION_DAYS=365
+```
+
+### Variabili Ambiente Frontend
+```bash
+# API Backend
+VITE_API_URL=http://localhost:8000/api/v1
 ```
 
 ## Testing
@@ -382,26 +471,30 @@ curl http://localhost:8000/
 ## Prossimi Passi
 
 ### Miglioramenti Futuri
-1. **Frontend**: Implementare UI Streamlit o React
-2. **Database**: Migliorare schema e indici
-3. **Performance**: Ottimizzazione query e caching
-4. **Monitoring**: Dashboard metriche
-5. **Security**: Autenticazione avanzata
+1. **Database Migliorato**: PostgreSQL per produzione
+2. **Autenticazione Avanzata**: JWT refresh token, multi-factor
+3. **Monitoring**: Dashboard Prometheus/Grafana
+4. **Testing**: Copertura test > 80%
+5. **Documentazione**: API docs con Swagger/ReDoc
 
 ### Estensioni
 1. **Multi-tenant**: Supporto multi-azienda
-2. **Real-time**: Streaming data processing
-3. **Advanced Analytics**: ML-powered insights
-4. **Mobile App**: App mobile dedicata
+2. **Real-time**: WebSocket per aggiornamenti live
+3. **ML Integration**: Predizioni con scikit-learn
+4. **Export**: PDF/Excel reports
+5. **Mobile**: App React Native
 
 ## Conclusioni
 
 Il sistema Process Mining è **completamente implementato** e **funzionante** con:
 
-- ✅ **Backend FastAPI** completo
-- ✅ **Integrazione HubSpot** OAuth 2.0
+- ✅ **Backend FastAPI** completo con tutti gli endpoint
+- ✅ **Frontend React** con Dashboard interattiva
+- ✅ **Integrazione HubSpot** OAuth 2.0 con workflows
 - ✅ **ETL Pipeline** funzionante
 - ✅ **Process Mining** con PM4Py
+- ✅ **Simulazione What-If** con SimPy
+- ✅ **Dashboard Interattiva** con React Flow
 - ✅ **Data Quality** e Privacy
 - ✅ **Task asincroni** con Celery
 - ✅ **Docker** deployment ready
