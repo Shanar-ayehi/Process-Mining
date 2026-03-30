@@ -485,6 +485,37 @@ def extract_companies_task(self) -> Dict[str, Any]:
 
 
 @etl_task()
+def extract_workflows_task(self) -> Dict[str, Any]:
+    """
+    Task per l'estrazione workflow da HubSpot.
+    
+    Returns:
+        Dizionario con risultati estrazione
+    """
+    try:
+        logger.info("Inizio task estrazione workflow")
+        
+        # Estrai workflow
+        workflows_data = data_extraction_service.extract_workflows()
+        
+        result = create_task_result(
+            success=True,
+            data={
+                'workflows_count': len(workflows_data),
+                'metadata': create_task_metadata('extract_workflows', workflows_count=len(workflows_data))
+            }
+        )
+        
+        logger.info(f"Task estrazione workflow completato: {len(workflows_data)} workflow")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore nel task estrazione workflow: {e}")
+        handle_task_error(self.request.id, e)
+        return create_task_result(success=False, error=str(e))
+
+
+@etl_task()
 def monitor_new_files_task(self, raw_data_dir: Optional[str] = None, 
                           lookback_minutes: int = 10) -> Dict[str, Any]:
     """

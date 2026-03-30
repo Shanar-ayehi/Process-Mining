@@ -176,6 +176,29 @@ class DataExtractionService:
             logger.error(f"Errore durante l'estrazione pipeline stages: {e}")
             raise
     
+    async def extract_workflows(self, save_to_file: bool = True) -> List[Dict[str, Any]]:
+        """Estrae workflow da HubSpot."""
+        logger.info("Inizio estrazione workflow da HubSpot")
+        
+        try:
+            hubspot_client = await self._get_hubspot_client()
+            workflows = await hubspot_client.get_workflows()
+            
+            if save_to_file:
+                timestamp = self._get_timestamp()
+                filename = f"hubspot_workflows_{timestamp}.json"
+                filepath = self.data_dir / filename
+                
+                await self._save_json_async(workflows, filepath)
+                logger.info(f"Dati workflow salvati in: {filepath}")
+            
+            logger.info(f"Estratti {len(workflows)} workflow")
+            return workflows
+            
+        except HubSpotAPIError as e:
+            logger.error(f"Errore durante l'estrazione workflow: {e}")
+            raise
+    
     async def extract_all_data(self, save_to_file: bool = True) -> Dict[str, List[Dict[str, Any]]]:
         """
         Estrae tutti i dati disponibili da HubSpot.
@@ -194,14 +217,15 @@ class DataExtractionService:
                 self.extract_deals_with_history(save_to_file=save_to_file),
                 self.extract_contacts(save_to_file=save_to_file),
                 self.extract_companies(save_to_file=save_to_file),
-                self.extract_pipeline_stages(save_to_file=save_to_file)
+                self.extract_pipeline_stages(save_to_file=save_to_file),
+                self.extract_workflows(save_to_file=save_to_file)
             ]
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             # Gestisci eventuali eccezioni
             data = {}
-            data_names = ['deals', 'contacts', 'companies', 'pipeline_stages']
+            data_names = ['deals', 'contacts', 'companies', 'pipeline_stages', 'workflows']
             
             for i, result in enumerate(results):
                 if isinstance(result, Exception):

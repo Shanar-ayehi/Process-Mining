@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes_connector import router as connector_router
 from app.api.routes_mining import router as mining_router
-# from app.api.routes_analytics import router as analytics_router  # DISABILITATO: dipendenze mancanti
+from app.api.routes_analytics import router as analytics_router
 from app.api.routes_dq import router as dq_router
 from app.api.routes_process_management import router as process_management_router
 from app.api.routes.auth import router as auth_router
@@ -41,7 +41,7 @@ app.add_middleware(
 # Include routers
 app.include_router(connector_router, prefix="/api/v1", tags=["Connector"])
 app.include_router(mining_router, prefix="/api/v1", tags=["Mining"])
-# app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])  # DISABILITATO: dipendenze mancanti
+app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])
 app.include_router(dq_router, prefix="/api/v1", tags=["Data Quality"])
 app.include_router(process_management_router, prefix="/api/v1", tags=["Process Management"])
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
@@ -57,8 +57,7 @@ async def root():
         "endpoints": {
             "connector": "/api/v1/connector",
             "mining": "/api/v1/mining", 
-            # TODO: Ripristinare analytics quando le dipendenze saranno disponibili
-            # "analytics": "/api/v1/analytics",
+            "analytics": "/api/v1/analytics",
             "data_quality": "/api/v1/dq",
             "external_cards": "/api/v1/external-cards"
         }

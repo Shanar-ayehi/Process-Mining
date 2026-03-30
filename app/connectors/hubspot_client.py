@@ -327,6 +327,24 @@ class HubSpotClient:
         
         return stages
     
+    async def get_workflows(self, limit: int = 100) -> List[Dict]:
+        """
+        Recupera i workflow attivi da HubSpot.
+        
+        Args:
+            limit: Limite di risultati
+            
+        Returns:
+            Lista di workflow con trigger e azioni
+        """
+        endpoint = "/automation/v3/workflows"
+        params = {"limit": limit}
+        
+        logger.info(f"Recupero {limit} workflow da HubSpot")
+        response = await self._make_request("GET", endpoint, params=params)
+        
+        return response.get("results", [])
+    
     async def get_engagements(self, limit: int = 100, after: Optional[str] = None) -> List[Dict]:
         """Recupera le attività/engagement da HubSpot."""
         endpoint = "/engagements/v1/engagements/paged"
@@ -682,6 +700,34 @@ class HubSpotClient:
             logger.error(f"Errore durante recupero info utente: {str(e)}")
             raise
     
+    async def revoke_token(self, refresh_token: str) -> bool:
+        """
+        Revoca un refresh token su HubSpot.
+        
+        Args:
+            refresh_token: Refresh token da revocare
+            
+        Returns:
+            bool: True se revoca riuscita, False altrimenti
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    f"{self.base_url}/oauth/v1/refresh-tokens/{refresh_token}",
+                    headers={"Authorization": f"Bearer {self.access_token}"}
+                )
+                
+                if response.status_code == 204:
+                    logger.info("Token revocato con successo su HubSpot")
+                    return True
+                else:
+                    logger.warning(f"Revoca token fallita: {response.status_code} - {response.text}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Errore durante revoca token: {str(e)}")
+            return False
+
     async def get_usage_stats(self) -> Dict:
         """Restituisce statistiche sull'uso del client."""
         return {

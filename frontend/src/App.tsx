@@ -10,7 +10,10 @@ import ProcessAnalysis from './components/ProcessAnalysis'
 import GlobalAnalysis from './components/GlobalAnalysis'
 
 // Importiamo il servizio auth
-import { useAuth, checkAuthStatus, authenticateWithHubSpot } from './services/auth'
+import { useAuth, checkAuthStatus } from './services/auth'
+
+// URL del backend per l'autenticazione OAuth
+const API_URL = import.meta.env.VITE_API_URL
 
 // Componente per proteggere le route
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,25 +45,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!isAuthenticated) {
-    // Reindirizza al flusso OAuth di HubSpot
-    return (
-      <Box textAlign="center" py={5}>
-        <Typography variant="h5" gutterBottom>
-          Autenticazione Richiesta
-        </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
-          Per accedere a questa sezione è necessario autenticarsi con HubSpot.
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => authenticateWithHubSpot()}
-          startIcon={<LoginIcon />}
-        >
-          Accedi con HubSpot
-        </Button>
-      </Box>
-    )
+    // Redirect dinamico alla pagina di login del backend OAuth
+    window.location.href = `${API_URL}/auth/hubspot/login`
+    return null
   }
 
   return <>{children}</>
@@ -103,7 +90,7 @@ function App() {
           <Routes>
             <Route path="/" element={<ProcessList />} />
             <Route path="/process/:processId" element={<ProcessDetail />} />
-            <Route path="/process/:processId/analysis" element={<ProcessAnalysis />} />
+            <Route path="/analysis/:id" element={<ProcessAnalysis />} />
             <Route path="/analysis" element={<GlobalAnalysis />} />
             <Route path="/settings" element={<div>Impostazioni</div>} />
           </Routes>

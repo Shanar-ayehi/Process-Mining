@@ -377,6 +377,19 @@ class GDPRComplianceSchema(BaseModel):
     sensitive_columns_found: List[str] = Field(..., description="Colonne sensibili trovate")
     issues: List[str] = Field(..., description="Problemi compliance")
 
+# Simulation schemas
+class SimulationRequestSchema(BaseModel):
+    """Schema per richieste What-If Simulation."""
+    portal_id: str = Field(..., description="ID del portale HubSpot")
+    num_cases: int = Field(100, description="Numero di casi da simulare", ge=1, le=10000)
+    modifications: Optional[Dict[str, Dict[str, float]]] = Field(
+        None, 
+        description="Modifiche da applicare (es. {'Activity': {'time_multiplier': 0.8}})"
+    )
+    seed: Optional[int] = Field(42, description="Seed per riproducibilità")
+    start_date: Optional[str] = Field(None, description="Data inizio filtro (ISO format)")
+    end_date: Optional[str] = Field(None, description="Data fine filtro (ISO format)")
+
 # Utility validators
 @validator('timestamp', pre=True)
 def validate_timestamp(cls, v):

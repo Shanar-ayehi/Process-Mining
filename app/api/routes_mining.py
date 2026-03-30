@@ -97,6 +97,63 @@ async def discover_performance_dfg():
         logger.error(f"Errore discovery performance DFG: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/discover/dfg-with-automations/{portal_id}")
+async def get_dfg_with_automations(portal_id: str, include_performance: bool = False):
+    """
+    Ottiene il DFG con le automazioni HubSpot mappate sui nodi.
+    
+    Args:
+        portal_id: ID del portale HubSpot
+        include_performance: Se includere le metriche di performance
+    """
+    try:
+        logger.info(f"Richiesta DFG con automazioni per portal_id: {portal_id}")
+        
+        # Carica event log
+        from app.core.database import load_event_log
+        table_name = f"event_log_{portal_id}"
+        event_log_df = load_event_log(table_name=table_name)
+        
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
+        
+        # Carica workflow più recenti
+        from pathlib import Path
+        from app.core.config import settings
+        import json
+        import glob
+        
+        workflows_dir = settings.raw_data_dir
+        workflow_files = sorted(glob.glob(str(workflows_dir / "hubspot_workflows_*.json")))
+        
+        workflows = []
+        if workflow_files:
+            latest_workflow_file = workflow_files[-1]
+            with open(latest_workflow_file, 'r', encoding='utf-8') as f:
+                workflows = json.load(f)
+            logger.info(f"Caricati {len(workflows)} workflow da {latest_workflow_file}")
+        
+        # Esegui discovery con mapping workflow
+        if include_performance:
+            result = discovery_service.discover_performance_dfg(event_log_df, workflows=workflows)
+        else:
+            result = discovery_service.discover_dfg(event_log_df, workflows=workflows)
+        
+        # Restituisci solo graph_data per il frontend
+        return {
+            "portal_id": portal_id,
+            "graph_data": result.get('graph_data', {}),
+            "statistics": result.get('statistics', {}),
+            "workflows_mapped": len(workflows),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore DFG con automazioni: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Conformance checking endpoints
 @router.post("/conformance/check")
 async def check_conformance(request: ConformanceRequestSchema):

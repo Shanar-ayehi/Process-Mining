@@ -3,13 +3,13 @@ import { Box, Typography, Paper, Grid, Chip } from '@mui/material';
 import { useParams } from 'react-router-dom';
 
 const ProcessAnalysis: React.FC = () => {
-  const { processId } = useParams();
+  const { id } = useParams();
 
   return (
     <Box sx={{ p: 3 }}>
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
         <Typography variant="h4" gutterBottom>
-          Analisi Processo: {processId}
+          Analisi Processo: {id}
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Questa pagina mostrerà l'analisi approfondita del processo selezionato.

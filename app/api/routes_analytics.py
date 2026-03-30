@@ -4,14 +4,14 @@ from datetime import datetime
 
 from app.services.analytics.feature_engineering import feature_engineering_service
 from app.services.analytics.predictive_models import predictive_models_service
-from app.tasks.jobs_analytics import (
-    run_feature_engineering_task, train_predictive_models_task,
-    generate_analytics_report_task, export_analytics_results_task
+from app.tasks.analytics_task import (
+    run_simulation_task, compare_scenarios_task
 )
 from app.core.logger import get_logger
 from app.api.schemas import (
     FeatureEngineeringRequestSchema, ModelTrainingRequestSchema,
-    PredictionRequestSchema, AnalyticsReportRequestSchema
+    PredictionRequestSchema, AnalyticsReportRequestSchema,
+    SimulationRequestSchema
 )
 
 logger = get_logger()
@@ -334,6 +334,68 @@ async def get_top_insights():
     except Exception as e:
         logger.error(f"Errore principali insights: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Simulation endpoints
+@router.post("/simulate")
+async def run_simulation(request: SimulationRequestSchema):
+    """
+    Esegue What-If Analysis (simulazione processo).
+    """
+    try:
+        logger.info(f"Richiesta simulazione What-If: portal_id={request.portal_id}, {request.num_cases} casi")
+        
+        task = run_simulation_task.delay(
+            portal_id=request.portal_id,
+            num_cases=request.num_cases,
+            modifications=request.modifications,
+            seed=request.seed or 42,
+            start_date=request.start_date,
+            end_date=request.end_date
+        )
+        
+        return {
+            "task_id": task.id,
+            "status": "started",
+            "portal_id": request.portal_id,
+            "num_cases": request.num_cases,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Errore simulazione What-If: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/simulate/compare")
+async def compare_scenarios(
+    portal_id: str,
+    scenarios: List[Dict[str, Any]],
+    num_cases: int = 100
+):
+    """
+    Confronta più scenari What-If.
+    """
+    try:
+        logger.info(f"Richiesta confronto scenari: portal_id={portal_id}, {len(scenarios)} scenari")
+        
+        task = compare_scenarios_task.delay(
+            portal_id=portal_id,
+            scenarios=scenarios,
+            num_cases=num_cases
+        )
+        
+        return {
+            "task_id": task.id,
+            "status": "started",
+            "portal_id": portal_id,
+            "num_scenarios": len(scenarios),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Errore confronto scenari: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Export endpoints
 @router.post("/export/results")

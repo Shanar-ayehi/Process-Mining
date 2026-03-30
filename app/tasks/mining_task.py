@@ -155,6 +155,7 @@ def discover_performance_dfg_task(self, portal_id: str) -> Dict[str, Any]:
             data={
                 'portal_id': portal_id,
                 'performance_dfg': performance_result['performance_dfg'],
+                'graph_data': performance_result.get('graph_data'),
                 'avg_duration_mean': performance_result['statistics'].get('avg_duration_mean', 0),
                 'fastest_transition': performance_result['statistics'].get('fastest_transition'),
                 'slowest_transition': performance_result['statistics'].get('slowest_transition'),

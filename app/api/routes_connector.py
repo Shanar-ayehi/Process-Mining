@@ -7,7 +7,8 @@ from app.services.etl.data_transformation import data_transformation_service
 from app.tasks.etl_task import (
     extract_deals_task, transform_deals_task, merge_sources_task,
     run_full_etl_pipeline, schedule_periodic_extraction,
-    cleanup_old_data_task, extract_contacts_task, extract_companies_task
+    cleanup_old_data_task, extract_contacts_task, extract_companies_task,
+    extract_workflows_task
 )
 from app.core.logger import get_logger
 from app.api.schemas import (
@@ -83,6 +84,26 @@ async def extract_companies():
         
     except Exception as e:
         logger.error(f"Errore estrazione aziende: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/workflows")
+async def get_workflows():
+    """
+    Recupera workflow attivi da HubSpot.
+    """
+    try:
+        logger.info("Richiesta workflow HubSpot")
+        
+        task = extract_workflows_task.delay()
+        
+        return {
+            "task_id": task.id,
+            "status": "started",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Errore recupero workflow: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Transformation endpoints

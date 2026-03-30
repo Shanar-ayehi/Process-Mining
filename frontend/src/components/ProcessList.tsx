@@ -19,6 +19,7 @@ import {
   TrendingUp as TrendingUpIcon
 } from '@mui/icons-material'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 
 interface ProcessInfo {
   process_id: string
@@ -40,6 +41,7 @@ const ProcessList: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const navigate = useNavigate()
 
   // URL del backend (da configurare per Vite)
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
@@ -69,15 +71,9 @@ const ProcessList: React.FC = () => {
     fetchProcesses()
   }
 
-  const handleAnalyzeProcess = async (processId: string) => {
-    try {
-      await axios.post(`${API_BASE_URL}/processes/${processId}/analyze`)
-      // Ricarica la lista per aggiornare gli stati
-      fetchProcesses()
-    } catch (err: any) {
-      console.error('Errore nell\'avvio analisi:', err)
-      setError('Errore nell\'avvio analisi')
-    }
+  const handleAnalyzeProcess = (processId: string) => {
+    // Apre l'analisi in una nuova scheda del browser
+    window.open(`/analysis/${processId}`, '_blank')
   }
 
   const filteredProcesses = processes.filter(process =>

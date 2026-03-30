@@ -43,7 +43,8 @@ HUBSPOT_SCOPES = [
     "crm.objects.contacts.write",
     "crm.objects.companies.read",
     "timeline",
-    "settings.users.read"
+    "settings.users.read",
+    "automation"
 ]
 
 
@@ -251,12 +252,19 @@ async def logout(
         dict: Messaggio di conferma
     """
     try:
-        # TODO: Implementare revoca token su HubSpot
-        # Per ora, rimuoviamo il token dal database
+        # Recupera tutti i token dal database
         result = await db.execute(select(Token))
         tokens = result.scalars().all()
         
+        # Importa HubSpotClient per la revoca
+        from app.connectors.hubspot_client import HubSpotClient
+        
+        hubspot_client = HubSpotClient(db)
+        
         for token in tokens:
+            # Prova a revocare il refresh token su HubSpot
+            # Se fallisce, procede comunque con l'eliminazione locale
+            await hubspot_client.revoke_token(token.refresh_token)
             await db.delete(token)
         
         await db.commit()
