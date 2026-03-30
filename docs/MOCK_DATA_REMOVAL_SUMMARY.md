@@ -2,210 +2,314 @@
 
 ## Panoramica
 
-Abbiamo completato la rimozione completa di tutti i dati mock e preconfigurati dal sistema Process Mining, implementando un'integrazione HubSpot reale basata su OAuth 2.0.
+Implementazione completa della rimozione di mock data e integrazione reale con HubSpot tramite OAuth 2.0.
 
-## Cosa è stato Rimosso
+## Stato Attuale
 
-### 1. **Client HubSpot Legacy**
-- **File**: `app/connectors/hubspot_client.py`
-- **Cosa era**: Client sincrono con dati mock e API key statica
-- **Sostituito con**: `app/connectors/hubspot_client_oauth.py` - Client asincrono OAuth 2.0
+### ✅ Implementato
 
-### 2. **Dati Mock nei Servizi**
-- **File**: `app/services/etl/data_extraction.py`
-- **Cosa era**: Chiamate a metodi mock e dati preconfigurati
-- **Sostituito con**: Chiamate API reali a HubSpot con OAuth 2.0
+1. **Client HubSpot OAuth 2.0**
+   - File: `app/connectors/hubspot_client.py`
+   - Autenticazione OAuth 2.0 completa
+   - Gestione token (access + refresh)
+   - Rate limiting automatico
+   - Retry con backoff esponenziale
 
-### 3. **Configurazione Statica**
-- **File**: Tutti i servizi ETL
-- **Cosa era**: Dati hardcodati e configurazioni fisse
-- **Sostituito con**: Configurazione dinamica basata su OAuth e token management
+2. **API Endpoints OAuth**
+   - File: `app/api/routes/auth.py`
+   - `/auth/hubspot/login` - Inizio flusso OAuth
+   - `/auth/callback` - Gestione callback
+   - `/auth/refresh` - Refresh token
+   - `/auth/status` - Stato autenticazione
 
-## Cosa è stato Implementato
+3. **Database Token**
+   - File: `app/models/auth.py`
+   - Modello `Token` per storage OAuth
+   - Modello `User` per utenti
+   - Modello `AuthSession` per sessioni
 
-### 1. **OAuth 2.0 Authentication System**
+4. **ETL Services Aggiornati**
+   - File: `app/services/etl/data_extraction.py`
+   - Tutti i metodi usano OAuth client
+   - Estrazione dati reali da HubSpot
+   - Operazioni asincrone
 
-#### Backend Routes (`app/api/routes/auth.py`)
-- `/auth/hubspot/login` - Inizio flusso OAuth
-- `/auth/callback` - Gestione callback OAuth
-- `/auth/refresh` - Refresh token
-- `/auth/status` - Verifica stato autenticazione
-- `/auth/logout` - Logout utente
+## Architettura OAuth 2.0
 
-#### Database Models (`app/models/auth.py`)
-- `User` - Modello utenti autenticati
-- `Token` - Modello token OAuth (access + refresh)
-- `AuthSession` - Modello sessioni di autenticazione
+### Flusso Autenticazione
+```
+1. Utente → /auth/hubspot/login
+2. Redirect → HubSpot OAuth
+3. HubSpot → /auth/callback?code=...
+4. Backend → Scambio code per token
+5. Token → Salvataggio in SQLite
+6. JWT → Redirect al frontend
+```
 
-#### Pydantic Schemas (`app/schemas/auth.py`)
-- `AuthResponse` - Risposta autenticazione
-- `TokenRefreshRequest` - Richiesta refresh token
-- `UserInfo` - Informazioni utente
-- `AuthStatus` - Stato autenticazione
+### Token Management
+- **Access Token**: Per chiamate API
+- **Refresh Token**: Per rinnovo automatico
+- **Storage**: SQLite database
+- **Refresh**: Automatico quando scaduto
 
-### 2. **HubSpot OAuth Client**
+## Client HubSpot OAuth
 
-#### Nuovo Client (`app/connectors/hubspot_client_oauth.py`)
-- **OAuth 2.0 Integration**: Autenticazione completa con HubSpot
-- **Token Management**: Gestione automatica refresh token
-- **Rate Limiting**: Controllo rate limiting HubSpot
-- **Async Support**: Supporto asincrono completo
-- **Error Handling**: Gestione errori avanzata
+### Metodi Implementati
+```python
+# Estrazione deal
+await client.get_deals(limit=100)
+await client.get_all_deals()  # Con paginazione
 
-#### Funzionalità Implementate
-- `get_deals()` - Estrazione deal reali
-- `get_contacts()` - Estrazione contatti reali
-- `get_companies()` - Estrazione aziende reali
-- `get_pipeline_stages()` - Estrazione pipeline reali
-- `get_engagements()` - Estrazione attività reali
+# Estrazione contatti
+await client.get_contacts(limit=100)
 
-### 3. **ETL Services Aggiornati**
+# Estrazione aziende
+await client.get_companies(limit=100)
 
-#### DataExtractionService (`app/services/etl/data_extraction.py`)
-- **OAuth Integration**: Tutti i metodi ora usano OAuth client
-- **Real Data Extraction**: Estrazione dati reali da HubSpot
-- **Async Operations**: Operazioni completamente asincrone
-- **Error Handling**: Gestione errori OAuth e API
+# Pipeline stages
+await client.get_pipeline_stages()
 
-#### Metodi Aggiornati
-- `extract_deals_with_history()` - Deal con cronologia reale
-- `extract_contacts()` - Contatti reali
-- `extract_companies()` - Aziende reali
-- `extract_pipeline_stages()` - Pipeline reali
-- `extract_all_data()` - Estrazione completa dati
+# Timeline events
+await client.get_timeline_events("deals", deal_id)
 
-### 4. **API Integration**
+# Deal singolo
+await client.get_deal(deal_id)
 
-#### Main API (`app/api/main.py`)
-- **Auth Routes**: Aggiunta rotta autenticazione
-- **CORS Configuration**: Configurazione sicurezza OAuth
-- **Middleware**: Gestione token e sessioni
+# Contatto singolo
+await client.get_contact(contact_id)
 
-## Configurazione Necessaria
+# Azienda singola
+await client.get_company(company_id)
 
-### Variabili d'Ambiente
+# Associazioni
+await client.get_associations("deals", deal_id, "contacts")
+
+# Deal con associazioni
+await client.get_deal_associations(deal_id)
+
+# Timeline completa deal
+await client.get_deal_timeline(deal_id)
+```
+
+### Gestione Errori
+- **Rate Limiting**: Delay 100ms tra richieste
+- **Retry**: Backoff esponenziale (5 tentativi)
+- **Timeout**: 30 secondi per richiesta
+- **Logging**: Dettagliato per debug
+
+## ETL Services Aggiornati
+
+### Data Extraction Service
+```python
+class DataExtractionService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+    
+    async def _get_hubspot_client(self) -> HubSpotClient:
+        """Ottiene client HubSpot OAuth."""
+        return await create_hubspot_client(self.db)
+    
+    async def extract_deals_with_history(self, properties_with_history=None):
+        """Estrae deal con cronologia."""
+        client = await self._get_hubspot_client()
+        deals = await client.get_all_deals_with_history(properties_with_history)
+        return deals
+    
+    async def extract_contacts(self):
+        """Estrae contatti."""
+        client = await self._get_hubspot_client()
+        contacts = await client.get_all_contacts()
+        return contacts
+    
+    async def extract_companies(self):
+        """Estrae aziende."""
+        client = await self._get_hubspot_client()
+        companies = await client.get_all_companies()
+        return companies
+    
+    async def extract_pipeline_stages(self):
+        """Estrae fasi pipeline."""
+        client = await self._get_hubspot_client()
+        stages = await client.get_pipeline_stages()
+        return stages
+```
+
+## Configurazione
+
+### Variabili Ambiente
 ```bash
-# OAuth 2.0 Configuration
+# OAuth 2.0
 HUBSPOT_CLIENT_ID=your_client_id
 HUBSPOT_CLIENT_SECRET=your_client_secret
-HUBSPOT_REDIRECT_URI=https://your-domain.com/api/v1/auth/callback
+HUBSPOT_REDIRECT_URI=http://localhost:8000/api/v1/auth/callback
 
-# Database Configuration
-DATABASE_URL=postgresql://user:password@localhost:5432/process_mining
+# Database
+DATABASE_URL=sqlite:///./app/data/process_mining.db
 
-# Frontend Configuration
-FRONTEND_URL=https://your-frontend.com
+# Privacy
+EMAIL_HASH_SALT=your_salt_here
+DATA_RETENTION_DAYS=365
 ```
 
 ### HubSpot App Configuration
-1. **Create App**: [developers.hubspot.com](https://developers.hubspot.com)
-2. **Set Redirect URI**: `https://your-domain.com/api/v1/auth/callback`
-3. **Configure Scopes**:
-   ```
-   crm.objects.deals.read
-   crm.objects.deals.write
-   crm.objects.contacts.read
-   crm.objects.contacts.write
-   crm.objects.companies.read
-   timeline.events.read
-   timeline.events.write
-   engagements.read
-   settings.user.read
-   ```
-
-## Flusso di Autenticazione
-
-### 1. **Inizio Autenticazione**
-```http
-GET /api/v1/auth/hubspot/login
-```
-- Redirect a HubSpot OAuth consent page
-- Utente autorizza l'app
-
-### 2. **Callback Gestione**
-```http
-GET /api/v1/auth/callback?code=authorization_code
-```
-- Scambio code per token
-- Salvataggio token nel database
-- Redirect al frontend con JWT
-
-### 3. **Accesso ai Dati**
-- Token JWT usato per autenticazione API
-- Client OAuth recupera token dal database
-- Chiamate API reali a HubSpot
-
-### 4. **Token Refresh**
-- Automatico refresh token quando necessario
-- Gestione scadenza token
-- Aggiornamento database
-
-## Benefici dell'Implementazione
-
-### 1. **Sicurezza**
-- **OAuth 2.0**: Standard di sicurezza industry
-- **Token Management**: Gestione sicura token
-- **HTTPS Required**: Comunicazione sicura
-
-### 2. **Scalabilità**
-- **Async Operations**: Supporto high-performance
-- **Rate Limiting**: Rispetto limiti HubSpot
-- **Error Handling**: Gestione errori robusta
-
-### 3. **User Experience**
-- **Single Sign-On**: Login unico con HubSpot
-- **Automatic Refresh**: Nessun logout forzato
-- **Real Data**: Dati sempre aggiornati
-
-### 4. **Maintainability**
-- **No Mock Data**: Sistema basato su dati reali
-- **Configuration Driven**: Configurazione flessibile
-- **Error Logging**: Logging dettagliato
+1. **Crea App**: [developers.hubspot.com](https://developers.hubspot.com)
+2. **Configura OAuth**:
+   - Redirect URI: `http://localhost:8000/api/v1/auth/callback`
+   - Scopes:
+     - `crm.objects.deals.read`
+     - `crm.objects.deals.write`
+     - `crm.objects.contacts.read`
+     - `crm.objects.contacts.write`
+     - `crm.objects.companies.read`
+     - `timeline.events.read`
+     - `timeline.events.write`
+     - `engagements.read`
+     - `settings.user.read`
 
 ## Testing
 
-### 1. **OAuth Flow Testing**
+### Test Autenticazione
 ```bash
-# Test autenticazione
-curl -X GET "https://your-domain.com/api/v1/auth/hubspot/login"
+# Test flusso OAuth
+curl http://localhost:8000/api/v1/auth/hubspot/login
 
-# Test stato autenticazione
-curl -X GET "https://your-domain.com/api/v1/auth/status"
+# Verifica stato
+curl http://localhost:8000/api/v1/auth/status
 
 # Test refresh token
-curl -X POST "https://your-domain.com/api/v1/auth/refresh" \
+curl -X POST http://localhost:8000/api/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refresh_token": "your_refresh_token"}'
 ```
 
-### 2. **Data Extraction Testing**
+### Test Estrazione
 ```bash
 # Test estrazione deal
-curl -X GET "https://your-domain.com/api/v1/etl/deals" \
-  -H "Authorization: Bearer your_jwt_token"
+curl http://localhost:8000/api/v1/connector/deals
 
 # Test estrazione contatti
-curl -X GET "https://your-domain.com/api/v1/etl/contacts" \
-  -H "Authorization: Bearer your_jwt_token"
+curl http://localhost:8000/api/v1/connector/contacts
+
+# Test estrazione aziende
+curl http://localhost:8000/api/v1/connector/companies
 ```
 
-## Prossimi Passi
+## Benefici Implementazione
 
-### 1. **Deploy Production**
-- Configurare ambiente cloud
-- Setup database production
-- Configurare HTTPS
-- Deploy backend e frontend
+### 1. Sicurezza
+- **OAuth 2.0**: Standard industry
+- **Token Management**: Gestione sicura
+- **HTTPS Required**: Comunicazione sicura
+- **No Hardcoded Credentials**: Credenziali dinamiche
 
-### 2. **HubSpot Integration**
-- Creare app HubSpot con OAuth credentials
-- Configurare scopes necessari
-- Testare integrazione completa
+### 2. Scalabilità
+- **Async Operations**: Supporto high-performance
+- **Rate Limiting**: Rispetto limiti HubSpot
+- **Retry Automatico**: Gestione errori robusta
+- **Paginazione**: Gestione grandi volumi
 
-### 3. **Monitoring**
-- Setup monitoring OAuth token
-- Configurare alert errori API
-- Monitorare usage HubSpot API
+### 3. User Experience
+- **Single Sign-On**: Login unico con HubSpot
+- **Automatic Refresh**: Nessun logout forzato
+- **Real Data**: Dati sempre aggiornati
+- **Error Handling**: Feedback utente chiaro
+
+### 4. Maintainability
+- **No Mock Data**: Sistema basato su dati reali
+- **Configuration Driven**: Configurazione flessibile
+- **Error Logging**: Logging dettagliato
+- **Unit Test**: Test completi
+
+## Troubleshooting
+
+### Errore Autenticazione
+```bash
+# Verifica variabili
+echo $HUBSPOT_CLIENT_ID
+echo $HUBSPOT_CLIENT_SECRET
+
+# Test connessione
+curl http://localhost:8000/api/v1/auth/status
+
+# Soluzione:
+# - Verifica credenziali
+# - Controlla redirect URI
+# - Verifica scopes
+```
+
+### Errore Token
+```bash
+# Verifica token nel database
+sqlite3 app/data/process_mining.db "SELECT * FROM tokens;"
+
+# Soluzione:
+# - Verifica database
+# - Controlla permessi
+# - Riautenticare
+```
+
+### Errore Estrazione
+```bash
+# Test API HubSpot
+curl http://localhost:8000/api/v1/connector/deals
+
+# Soluzione:
+# - Verifica token OAuth
+# - Controlla rate limiting
+# - Verifica permessi scopes
+```
+
+## Monitoraggio
+
+### Log Autenticazione
+```bash
+# Log backend
+docker-compose logs -f app
+
+# Log specifico auth
+grep "auth" logs/app.log
+```
+
+### Health Check
+```bash
+# Verifica salute sistema
+curl http://localhost:8000/health
+
+# Verifica connessione HubSpot
+curl http://localhost:8000/api/v1/auth/status
+```
+
+### Metriche
+- Token attivi
+- Chiamate API riuscite
+- Errori autenticazione
+- Tempo risposta API
+
+## Best Practices
+
+### 1. Gestione Token
+- Refresh automatico quando scaduto
+- Storage sicuro in database
+- Logging accessi
+- Validazione scadenza
+
+### 2. Rate Limiting
+- Delay tra richieste (100ms)
+- Retry con backoff
+- Monitoraggio usage
+- Graceful degradation
+
+### 3. Gestione Errori
+- Retry automatico
+- Log dettagliato
+- Fallback graceful
+- User feedback chiaro
+
+### 4. Privacy
+- Pseudonimizzazione email
+- Data retention policy
+- Audit log accessi
+- GDPR compliance
 
 ## Conclusioni
 
@@ -218,4 +322,4 @@ L'implementazione è ora **completamente priva di mock data** e basata su:
 - ✅ **Error Handling** robusto
 - ✅ **Security Best Practices** implementate
 
-Il sistema è pronto per essere deployato in produzione e utilizzato con dati reali da HubSpot.
+Il sistema è **pronto per il deploy** in produzione e utilizzato con dati reali da HubSpot.

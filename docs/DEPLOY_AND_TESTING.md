@@ -1,27 +1,28 @@
-# Deploy e Testing
+# Deploy e Testing - Process Mining System
 
-Procedura completa per deployare e testare il sistema Process Mining con integrazione HubSpot.
+## Panoramica
 
-## Panoramica del Deploy
+Procedura per deployare e testare il sistema Process Mining basato su FastAPI con integrazione HubSpot.
 
-Il sistema è composto da 3 componenti principali:
+## Architettura Deploy
+
+Il sistema è composto da 2 componenti principali:
 1. **Backend FastAPI** (Port 8000)
-2. **Frontend React** (Port 3000)
-3. **Database PostgreSQL** (Port 5432)
+2. **Redis** (per task Celery)
 
-## Prerequisiti per il Deploy
+**Nota:** Il sistema usa SQLite come database (non PostgreSQL).
+
+## Prerequisiti
 
 ### Tecnici
-- [x] Python 3.10+
-- [x] Node.js 18+
-- [x] Docker & Docker Compose
-- [x] PostgreSQL 14+
-- [x] HTTPS certificate (per produzione)
+- Python 3.12+
+- Docker & Docker Compose
+- HubSpot Developer Account (per integrazione reale)
 
 ### HubSpot
-- [x] Account HubSpot con permessi admin
-- [x] Accesso a External Cards
-- [x] API Key HubSpot (se necessaria)
+- App HubSpot con OAuth 2.0 configurato
+- Scopes: `crm.objects.deals.read`, `crm.objects.contacts.read`, `crm.objects.companies.read`
+- Redirect URI: `http://localhost:8000/api/v1/auth/callback`
 
 ## Opzioni di Deploy
 
@@ -29,29 +30,14 @@ Il sistema è composto da 3 componenti principali:
 
 #### 1.1 Configurazione Ambiente
 ```bash
-# Crea file .env per le variabili d'ambiente
-cp .env.example .env
-
-# Modifica .env con i tuoi valori
-nano .env
-```
-
-Contenuto tipico di `.env`:
-```bash
-# Backend
-DATABASE_URL=postgresql://user:password@postgres:5432/process_mining
-HUBSPOT_API_KEY=tua-api-key
-HUBSPOT_CLIENT_ID=tuo-client-id
-HUBSPOT_CLIENT_SECRET=tuo-client-secret
-
-# Frontend
-VITE_API_URL=https://backend-tuodominio.com/api/v1
-VITE_HUBSPOT_CLIENT_ID=tuo-client-id
-
-# Database
-POSTGRES_DB=process_mining
-POSTGRES_USER=user
-POSTGRES_PASSWORD=password
+# Crea file .env
+HUBSPOT_CLIENT_ID=your_client_id
+HUBSPOT_CLIENT_SECRET=your_client_secret
+HUBSPOT_REDIRECT_URI=http://localhost:8000/api/v1/auth/callback
+DATABASE_URL=sqlite:///./app/data/process_mining.db
+CELERY_BROKER_URL=redis://redis:6379/0
+EMAIL_HASH_SALT=your_salt_here
+DATA_RETENTION_DAYS=365
 ```
 
 #### 1.2 Avvio con Docker Compose
@@ -59,210 +45,276 @@ POSTGRES_PASSWORD=password
 # Avvia tutti i servizi
 docker-compose up -d
 
-# Verifica stato servizi
+# Verifica stato
 docker-compose ps
 
-# Controlla log
+# Log
 docker-compose logs -f
 ```
 
 #### 1.3 Verifica Deploy
 ```bash
 # Test backend API
-curl https://backend-tuodominio.com/api/v1/health
+curl http://localhost:8000/health
 
-# Test frontend
-curl https://frontend-tuodominio.com
-
-# Test database
-docker-compose exec postgres psql -U user -d process_mining -c "SELECT version();"
+# Test API
+curl http://localhost:8000/api/v1/auth/status
 ```
 
-### Opzione 2: Deploy Separato
+### Opzione 2: Deploy Manuale
 
-#### 2.1 Backend su Render.com
-1. **Crea account su Render.com**
-2. **Connetti repository GitHub**
-3. **Crea Web Service**:
-   - Build Command: `pip install -r requirements.txt && python main.py --mode full`
-   - Start Command: `uvicorn app.api.main:app --host 0.0.0.0 --port $PORT`
-   - Environment: Production
-
-4. **Configura variabili d'ambiente**:
-   - `DATABASE_URL`: PostgreSQL connection string
-   - `HUBSPOT_API_KEY`: HubSpot API Key
-   - `HUBSPOT_CLIENT_ID`: OAuth Client ID
-   - `HUBSPOT_CLIENT_SECRET`: OAuth Client Secret
-
-#### 2.2 Frontend su Vercel
-1. **Crea account su Vercel.com**
-2. **Importa repository**
-3. **Configura build**:
-   - Framework: Vite
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Install Command: `npm install`
-
-4. **Configura variabili d'ambiente**:
-   - `VITE_API_URL`: URL backend
-   - `VITE_HUBSPOT_CLIENT_ID`: OAuth Client ID
-
-### Opzione 3: Deploy su Railway
-
-#### 3.1 Backend su Railway
-1. **Crea account su Railway.app**
-2. **Importa repository**
-3. **Configura variabili d'ambiente**
-4. **Deploy automatico**
-
-#### 3.2 Frontend su Railway
-1. **Crea nuovo servizio**
-2. **Importa frontend repository**
-3. **Configura build e variabili**
-
-## Configurazione HTTPS
-
-### Certificati SSL
+#### 2.1 Backend
 ```bash
-# Opzione 1: Let's Encrypt (consigliato)
-sudo apt install certbot
-sudo certbot certonly --standalone -d tuo-dominio.com
+# Installa dipendenze
+poetry install
 
-# Opzione 2: Cloudflare SSL
-# Configura SSL in Cloudflare dashboard
+# Configura ambiente
+cp .env.example .env
+# Modifica .env con i tuoi valori
+
+# Avvia backend
+python main.py
 ```
 
-### Configurazione Reverse Proxy (Nginx)
-```nginx
-# /etc/nginx/sites-available/process-mining
-server {
-    listen 80;
-    server_name tuo-dominio.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name tuo-dominio.com;
-
-    ssl_certificate /etc/letsencrypt/live/tuo-dominio.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/tuo-dominio.com/privkey.pem;
-
-    # Backend
-    location /api/ {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Frontend
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+#### 2.2 Celery Worker (Opzionale)
+```bash
+# In un altro terminale
+poetry run celery -A app.tasks.worker.celery_app worker --loglevel=info
 ```
 
 ## Testing del Sistema
 
-### Test 1: Backend API Testing
-
-#### 1.1 Test Endpoint Base
+### Test 1: Health Check
 ```bash
-# Test health check
-curl -X GET "https://backend-tuodominio.com/api/v1/health"
+# Test salute sistema
+curl http://localhost:8000/health
 
-# Test process list
-curl -X GET "https://backend-tuodominio.com/api/v1/processes"
-
-# Test process detail
-curl -X GET "https://backend-tuodominio.com/api/v1/processes/test-process"
+# Risposta attesa
+{
+  "status": "healthy",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "services": {
+    "api": "running",
+    "database": "connected",
+    "hubspot": "available"
+  }
+}
 ```
 
-#### 1.2 Test Process Analysis
+### Test 2: API Endpoints
 ```bash
-# Avvia analisi processo
-curl -X POST "https://backend-tuodominio.com/api/v1/processes/test-process/analyze"
+# Test endpoint root
+curl http://localhost:8000/
 
-# Controlla stato analisi
-curl -X GET "https://backend-tuodominio.com/api/v1/processes/test-process/analysis/status"
+# Test autenticazione
+curl http://localhost:8000/api/v1/auth/status
 
-# Ottieni risultati
-curl -X GET "https://backend-tuodominio.com/api/v1/processes/test-process/analysis/results"
+# Test connettore (richiede autenticazione)
+curl http://localhost:8000/api/v1/connector/deals
 ```
 
-#### 1.3 Test HubSpot Integration
-```bash
-# Test HubSpot connection
-curl -X GET "https://backend-tuodominio.com/api/v1/hubspot/test-connection"
+### Test 3: Autenticazione OAuth
+1. **Accedi a URL OAuth:**
+   ```bash
+   curl http://localhost:8000/api/v1/auth/hubspot/login
+   ```
+   Questo reindirizzerà a HubSpot per l'autorizzazione.
 
-# Test data extraction
-curl -X GET "https://backend-tuodominio.com/api/v1/hubspot/deals"
+2. **Dopo autorizzazione:**
+   - Verrai reindirizzato a `http://localhost:8000/api/v1/auth/callback`
+   - Il token verrà salvato nel database SQLite
+
+3. **Verifica stato:**
+   ```bash
+   curl http://localhost:8000/api/v1/auth/status
+   ```
+
+### Test 4: Estrazione Dati
+```bash
+# Test estrazione deal (richiede autenticazione)
+curl http://localhost:8000/api/v1/connector/deals
+
+# Test estrazione contatti
+curl http://localhost:8000/api/v1/connector/contacts
+
+# Test estrazione aziende
+curl http://localhost:8000/api/v1/connector/companies
 ```
 
-### Test 2: Frontend Testing
-
-#### 2.1 Test Componenti Base
+### Test 5: Process Mining
 ```bash
-cd frontend
+# Test discovery (richiede dati)
+curl -X POST http://localhost:8000/api/v1/mining/discover \
+  -H "Content-Type: application/json" \
+  -d '{"algorithm": "dfg"}'
 
-# Test unit
-npm test
+# Test conformance checking
+curl -X POST http://localhost:8000/api/v1/mining/conformance \
+  -H "Content-Type: application/json" \
+  -d '{"model_type": "petri_net"}'
 
-# Test integrazione
-npm run test:integration
-
-# Test E2E
-npm run test:e2e
+# Test KPI
+curl http://localhost:8000/api/v1/mining/kpi
 ```
 
-#### 2.2 Test Manuali
-1. **Process List Page**:
-   - Verifica caricamento lista processi
-   - Test ricerca e filtro
-   - Test avvio analisi
-
-2. **Process Detail Page**:
-   - Verifica visualizzazione dettagli
-   - Test varianti processo
-   - Test metriche KPI
-
-3. **Analysis Page**:
-   - Verifica stato analisi
-   - Test visualizzazioni grafiche
-   - Test download report
-
-### Test 3: HubSpot Integration Testing
-
-#### 3.1 Test External Card
-1. **Crea External Card in HubSpot**
-2. **Configura iframe URL**
-3. **Test visualizzazione**
-4. **Test funzionalità**
-
-#### 3.2 Test OAuth 2.0
+### Test 6: Data Quality
 ```bash
-# Test OAuth flow
-curl -X GET "https://frontend-tuodominio.com/auth/hubspot"
+# Test validazione
+curl -X POST http://localhost:8000/api/v1/dq/validate \
+  -H "Content-Type: application/json" \
+  -d '{"file_path": "data/processed/event_log.parquet"}'
 
-# Test token refresh
-curl -X POST "https://backend-tuodominio.com/api/v1/auth/refresh"
+# Test report qualità
+curl http://localhost:8000/api/v1/dq/report
 ```
 
-#### 3.3 Test Parametri HubSpot
+## Test Integrazione Completo
+
+### Script Test Automatico
 ```bash
-# Test passaggio parametri
-curl -X GET "https://frontend-tuodominio.com?dealId=12345&contactId=67890"
+# Test sistema integrato
+python -c "
+from app.core.integration import run_full_system_test_sync
+result = run_full_system_test_sync()
+print('Test completato:', result['success'])
+"
 ```
 
-### Test 4: Performance Testing
+### Test Manuale Passo-Passo
 
-#### 4.1 Load Testing Backend
+1. **Avvia sistema:**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Attendi avvio:**
+   ```bash
+   # Attendi 10 secondi per avvio completo
+   sleep 10
+   ```
+
+3. **Test health check:**
+   ```bash
+   curl http://localhost:8000/health
+   ```
+
+4. **Test autenticazione:**
+   ```bash
+   curl http://localhost:8000/api/v1/auth/status
+   ```
+
+5. **Test endpoint principali:**
+   ```bash
+   curl http://localhost:8000/api/v1/connector/deals
+   curl http://localhost:8000/api/v1/mining/kpi
+   ```
+
+## Monitoring e Logging
+
+### Log Sistema
+```bash
+# Log backend
+docker-compose logs -f app
+
+# Log Celery worker
+docker-compose logs -f worker
+
+# Log Redis
+docker-compose logs -f redis
+```
+
+### File di Log
+- `logs/app.log`: Log principale applicazione
+- `logs/integration_tests/`: Risultati test integrazione
+- `logs/bootstrap_results/`: Risultati bootstrap
+
+### Health Check
+```bash
+# Verifica salute sistema
+curl http://localhost:8000/health
+
+# Verifica endpoint
+curl http://localhost:8000/
+
+# Stato autenticazione
+curl http://localhost:8000/api/v1/auth/status
+```
+
+## Troubleshooting
+
+### Problemi Comuni
+
+#### 1. Errore Autenticazione HubSpot
+```bash
+# Verifica variabili ambiente
+echo $HUBSPOT_CLIENT_ID
+echo $HUBSPOT_CLIENT_SECRET
+
+# Test connessione
+curl http://localhost:8000/api/v1/auth/status
+
+# Soluzione:
+# - Verifica credenziali HubSpot
+# - Controlla redirect URI
+# - Verifica scopes configurati
+```
+
+#### 2. Errore Database SQLite
+```bash
+# Verifica database
+ls -la app/data/
+
+# Ricrea database
+rm app/data/process_mining.db
+python main.py
+
+# Soluzione:
+# - Verifica permessi directory
+# - Controlla spazio disco
+# - Verifica path database in config
+```
+
+#### 3. Errore Celery Worker
+```bash
+# Verifica Redis
+redis-cli ping
+
+# Avvia worker manuale
+poetry run celery -A app.tasks.worker.celery_app worker --loglevel=debug
+
+# Soluzione:
+# - Verifica Redis running
+# - Controlla configurazione broker
+# - Verifica import task
+```
+
+#### 4. Errore API HubSpot
+```bash
+# Test connessione HubSpot
+curl http://localhost:8000/api/v1/connector/deals
+
+# Soluzione:
+# - Verifica token OAuth
+# - Controlla rate limiting
+# - Verifica scopes permessi
+```
+
+### Debug Mode
+```bash
+# Log dettagliato
+export LOG_LEVEL=DEBUG
+python main.py
+
+# Test specifico
+poetry run pytest tests/test_etl.py::test_extraction -v -s
+
+# Debug Celery
+poetry run celery -A app.tasks.worker.celery_app worker --loglevel=debug
+```
+
+## Performance Testing
+
+### Load Testing Backend
 ```bash
 # Installa Artillery
 npm install -g artillery
@@ -270,7 +322,7 @@ npm install -g artillery
 # Crea test file
 cat > load-test.yml << EOF
 config:
-  target: 'https://backend-tuodominio.com'
+  target: 'http://localhost:8000'
   phases:
     - duration: 60
       arrivalRate: 10
@@ -278,259 +330,114 @@ config:
     - duration: 120
       arrivalRate: 50
       name: "Ramp up load"
-    - duration: 300
-      arrivalRate: 100
-      name: "Sustained load"
 
 scenarios:
-  - name: "Process Analysis"
-    weight: 70
+  - name: "API Health Check"
     flow:
       - get:
-          url: "/api/v1/processes"
-      - post:
-          url: "/api/v1/processes/test-process/analyze"
+          url: "/health"
       - get:
-          url: "/api/v1/processes/test-process/analysis/status"
-
-  - name: "Process Details"
-    weight: 30
-    flow:
-      - get:
-          url: "/api/v1/processes/test-process"
-      - get:
-          url: "/api/v1/processes/test-process/variants"
+          url: "/"
 EOF
 
 # Esegui test
 artillery run load-test.yml
 ```
 
-#### 4.2 Frontend Performance
+### Memory Testing
 ```bash
-# Test bundle size
-npm run build -- --analyze
+# Monitora memoria
+docker stats
 
-# Test performance
-npm run test:performance
-
-# Lighthouse CI
-npm install -g @lhci/cli
-lhci autorun
+# Test memoria backend
+python -c "
+import psutil
+import os
+process = psutil.Process(os.getpid())
+print(f'Memoria: {process.memory_info().rss / 1024 / 1024:.2f} MB')
+"
 ```
 
-### Test 5: Security Testing
+## Security Testing
 
-#### 5.1 CORS Testing
+### CORS Testing
 ```bash
 # Test CORS headers
-curl -I -X OPTIONS "https://backend-tuodominio.com/api/v1/processes" \
-  -H "Origin: https://malicious-site.com"
+curl -I -X OPTIONS http://localhost:8000/api/v1/processes \
+  -H "Origin: http://localhost:3000"
 ```
 
-#### 5.2 Authentication Testing
+### Authentication Testing
 ```bash
 # Test senza auth
-curl -X GET "https://backend-tuodominio.com/api/v1/processes"
+curl http://localhost:8000/api/v1/processes
 
-# Test con token valido
-curl -X GET "https://backend-tuodominio.com/api/v1/processes" \
-  -H "Authorization: Bearer valid-token"
-
-# Test con token invalido
-curl -X GET "https://backend-tuodominio.com/api/v1/processes" \
-  -H "Authorization: Bearer invalid-token"
+# Test con auth (se configurato)
+curl http://localhost:8000/api/v1/processes \
+  -H "Authorization: Bearer your_token"
 ```
 
-#### 5.3 Input Validation Testing
+## Deploy Produzione
+
+### Docker Production
 ```bash
-# Test SQL injection
-curl -X GET "https://backend-tuodominio.com/api/v1/processes/'; DROP TABLE processes; --"
+# Build immagine
+docker build -t process-mining:latest .
 
-# Test XSS
-curl -X POST "https://backend-tuodominio.com/api/v1/processes" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "<script>alert(1)</script>"}'
+# Deploy
+docker-compose -f docker-compose.prod.yml up -d
+
+# Health check
+curl https://your-domain.com/health
 ```
 
-## Monitoring e Logging
-
-### Backend Monitoring
-```python
-# Aggiungi monitoring nel backend
-from prometheus_client import Counter, Histogram, start_http_server
-
-# Metrics
-REQUEST_COUNT = Counter('requests_total', 'Total requests', ['method', 'endpoint'])
-REQUEST_DURATION = Histogram('request_duration_seconds', 'Request duration')
-
-@app.middleware("http")
-async def monitor_requests(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    duration = time.time() - start_time
+### Reverse Proxy (Nginx)
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
     
-    REQUEST_COUNT.labels(method=request.method, endpoint=request.url.path).inc()
-    REQUEST_DURATION.observe(duration)
-    
-    return response
-```
-
-### Frontend Monitoring
-```typescript
-// Aggiungi monitoring nel frontend
-import { datadogRum } from '@datadog/browser-rum';
-
-datadogRum.init({
-  applicationId: 'tuo-app-id',
-  clientToken: 'tuo-client-token',
-  site: 'datadoghq.com',
-  service: 'process-mining-frontend',
-  env: 'production',
-  version: '1.0.0',
-  sessionSampleRate: 100,
-  sessionReplaySampleRate: 20,
-  trackUserInteractions: true,
-  trackResources: true,
-  trackLongTasks: true,
-});
-```
-
-### Log Aggregation
-```bash
-# Configura log rotation
-sudo nano /etc/logrotate.d/process-mining
-
-# Contenuto
-/var/log/process-mining/*.log {
-    daily
-    missingok
-    rotate 52
-    compress
-    delaycompress
-    notifempty
-    create 644 root root
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
-```
-
-## Troubleshooting
-
-### Problemi Comuni
-
-#### Backend non risponde
-```bash
-# Controlla stato servizi
-docker-compose ps
-
-# Controlla log
-docker-compose logs backend
-
-# Test connessione database
-docker-compose exec backend python -c "import psycopg2; conn = psycopg2.connect('postgresql://user:password@postgres:5432/process_mining'); print('OK')"
-```
-
-#### Frontend non carica
-```bash
-# Controlla build
-cd frontend && npm run build
-
-# Controlla variabili d'ambiente
-echo $VITE_API_URL
-
-# Test connettività API
-curl $VITE_API_URL/health
-```
-
-#### HubSpot integration fallisce
-```bash
-# Test CORS
-curl -I -X OPTIONS $BACKEND_URL/api/v1/processes \
-  -H "Origin: https://app.hubspot.com"
-
-# Test CSP headers
-curl -I $BACKEND_URL/api/v1/processes
-```
-
-### Debug Tools
-
-#### Backend Debug
-```bash
-# Avvia backend in modalità debug
-python main.py --mode full --debug
-
-# Attiva logging dettagliato
-export LOG_LEVEL=DEBUG
-```
-
-#### Frontend Debug
-```bash
-# Avvia frontend in modalità sviluppo
-cd frontend && npm run dev
-
-# Abilita React DevTools
-# Installa estensione browser React DevTools
-```
-
-#### Database Debug
-```bash
-# Accedi al database
-docker-compose exec postgres psql -U user -d process_mining
-
-# Controlla tabelle
-\dt
-
-# Controlla dati
-SELECT * FROM processes LIMIT 10;
 ```
 
 ## Checklist Deploy Completo
 
 ### Pre-Deploy
-- [ ] Tutti i test passano
-- [ ] Variabili d'ambiente configurate
-- [ ] Database configurato
-- [ ] HTTPS configurato
-- [ ] CORS configurato
-- [ ] CSP headers configurati
+- [ ] Variabili ambiente configurate
+- [ ] HubSpot app configurata
+- [ ] Database SQLite creato
+- [ ] Redis disponibile
+- [ ] Test unitari passati
 
 ### Deploy
-- [ ] Backend deployato
-- [ ] Frontend deployato
-- [ ] Database accessibile
-- [ ] API testate
-- [ ] Frontend testato
-- [ ] HubSpot integration configurata
+- [ ] Docker build completato
+- [ ] Servizi avviati
+- [ ] Health check OK
+- [ ] API endpoints funzionanti
+- [ ] Autenticazione OAuth funzionante
 
 ### Post-Deploy
 - [ ] Monitoraggio attivo
 - [ ] Logging configurato
-- [ ] Backup configurati
+- [ ] Backup configurato
 - [ ] Documentazione aggiornata
-- [ ] Team informato
 
-### Testing Completo
-- [ ] Unit test passati
-- [ ] Integration test passati
-- [ ] E2E test passati
-- [ ] Performance test passati
-- [ ] Security test passati
-- [ ] User acceptance test passati
+## Supporto Tecnico
 
-## Supporto e Manutenzione
+### Contatti
+- **Issues**: GitHub Issues
+- **Documentazione**: README.md
+- **Test**: `poetry run pytest tests/`
 
-### Supporto Tecnico
-- **Orari**: Lun-Ven 9:00-18:00
-- **Canali**: Email, GitHub Issues, Slack
-- **SLA**: Risposta entro 24h
-
-### Manutenzione
-- **Aggiornamenti**: Settimanali
-- **Backup**: Giornalieri
-- **Monitoring**: 24/7
-- **Security**: Mensili
-
-### Documentazione
-- **API Docs**: `/docs` endpoint
-- **User Guide**: `docs/USER_GUIDE.md`
-- **Dev Guide**: `docs/DEVELOPMENT.md`
-- **Troubleshooting**: `docs/TROUBLESHOOTING.md`
+### Troubleshooting
+1. Controlla log sistema
+2. Verifica configurazione
+3. Test endpoint singolarmente
+4. Consulta documentazione API

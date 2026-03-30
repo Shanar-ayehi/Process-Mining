@@ -54,6 +54,11 @@ lightgbm = "^4.6.0"
 [tool.poetry.group.dev.dependencies]
 # TESTING & SVILUPPO
 pytest = "*"
+pytest-asyncio = "*"
 jupyter = "*"
 ipykernel = "*"
 ruff = "*"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

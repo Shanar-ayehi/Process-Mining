@@ -1,52 +1,112 @@
-# Process Mining System - Sistema Completamente Plastico
+# Process Mining System - Sistema FastAPI
 
 ## Panoramica
 
-Questo è un sistema Process Mining completamente **plastico** e **auto-adattivo** che si configura automaticamente senza bisogno di setup iniziale. Il sistema è progettato per essere:
+Questo è un sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2.0 per l'analisi dei processi aziendali. Il sistema è progettato per:
 
-- **Auto-Discovery**: Scopre automaticamente la configurazione HubSpot
-- **Bootstrap Automatico**: Configura directory e impostazioni al primo avvio
-- **ETL Reattivo**: Si attiva automaticamente quando ci sono nuovi dati
-- **UI Dinamica**: Si adatta ai dati disponibili invece di mostrare dati hardcoded
-- **Integrazione Completa**: Tutti i componenti lavorano insieme in modo coordinato
+- **Integrazione HubSpot**: Connessione OAuth 2.0 con HubSpot CRM
+- **ETL Pipeline**: Estrazione, trasformazione e caricamento dati
+- **Process Discovery**: Algoritmi PM4Py per analisi processi
+- **Data Quality**: Validazione e controllo qualità dati
+- **Privacy by Design**: Pseudonimizzazione e compliance GDPR
 
-## Caratteristiche Principali
+## Architettura del Sistema
 
-### 🚀 Auto-Discovery HubSpot
-- **Scoperta Automatica**: Analizza automaticamente la struttura dei deal HubSpot
-- **Pipeline Stages**: Identifica automaticamente le fasi delle pipeline
-- **Proprietà Disponibili**: Scopre le proprietà disponibili per l'estrazione
-- **Configurazione Dinamica**: Genera una configurazione basata sui dati reali
+```
+Process-Mining/
+├── main.py                          # Entry point FastAPI
+├── app/
+│   ├── api/                         # API REST (FastAPI)
+│   │   ├── main.py                  # App FastAPI principale
+│   │   ├── routes_connector.py      # Endpoint connettore HubSpot
+│   │   ├── routes_mining.py         # Endpoint mining processi
+│   │   ├── routes_dq.py             # Endpoint data quality
+│   │   ├── routes_process_management.py  # Endpoint gestione processi
+│   │   ├── routes/auth.py           # Endpoint autenticazione OAuth
+│   │   └── routes_external_cards.py # Endpoint external cards
+│   ├── connectors/                  # Connettori esterni
+│   │   ├── hubspot_client.py        # Client HubSpot OAuth 2.0
+│   │   └── hubspot_mapper.py        # Mapping dati HubSpot
+│   ├── core/                        # Funzionalità core
+│   │   ├── config.py                # Configurazione centralizzata
+│   │   ├── database.py              # Setup database SQLite
+│   │   ├── logger.py                # Logging
+│   │   ├── privacy.py               # Gestione privacy GDPR
+│   │   ├── bootstrap.py             # Bootstrap sistema
+│   │   └── integration.py           # Test integrazione
+│   ├── services/                    # Logica business
+│   │   ├── etl/                     # Servizi ETL
+│   │   │   ├── data_extraction.py   # Estrazione dati HubSpot
+│   │   │   ├── data_transformation.py # Trasformazione dati
+│   │   │   ├── data_quality.py      # Validazione qualità
+│   │   │   └── privacy_governance.py # Governance privacy
+│   │   └── mining/                  # Servizi mining
+│   │       ├── discovery_service.py # Process Discovery
+│   │       ├── conformance_service.py # Conformance Checking
+│   │       └── kpi_service.py       # Calcolo KPI
+│   ├── tasks/                       # Task asincroni (Celery)
+│   │   ├── worker.py                # Worker Celery
+│   │   ├── etl_task.py              # Task ETL
+│   │   ├── mining_task.py           # Task mining
+│   │   └── dq_task.py               # Task data quality
+│   └── models/                      # Modelli database
+│       └── auth.py                  # Modelli autenticazione
+├── data/                            # Directory dati
+│   ├── raw/                         # Dati grezzi
+│   ├── processed/                   # Dati processati
+│   └── warehouse/                   # Data warehouse
+├── logs/                            # Log sistema
+├── docker-compose.yml               # Configurazione Docker
+├── pyproject.toml                   # Configurazione Python
+└── README.md                        # Documentazione principale
+```
 
-### 📁 Bootstrap Automatico
-- **Setup Directory**: Crea automaticamente tutte le directory necessarie
-- **Configurazione Base**: Genera una configurazione base se non disponibile
-- **Validazione Sistema**: Verifica la correttezza del setup
-- **Gestione Errori**: Gestisce automaticamente gli errori di configurazione
+## Caratteristiche Implementate
 
-### 🔄 ETL Reattivo
-- **Monitoraggio Continuo**: Controlla automaticamente la presenza di nuovi dati
-- **Attivazione Automatica**: Si attiva quando vengono rilevati nuovi file
-- **Gestione Job**: Coordinamento intelligente dei job ETL
-- **Retry Automatico**: Gestione automatica dei fallimenti e retry
+### 🔐 Autenticazione OAuth 2.0
+- **HubSpot OAuth**: Autenticazione completa con HubSpot
+- **Token Management**: Gestione automatica refresh token
+- **Database SQLite**: Storage token e sessioni
+- **Sicurezza**: HTTPS, CORS, gestione errori
 
-### 🖥️ UI Dinamica
-- **Adattamento Dati**: Si adatta automaticamente ai dati disponibili
-- **Metriche Reali**: Mostra metriche basate sui dati effettivi
-- **Visualizzazioni Dinamiche**: Grafici e diagrammi basati sui dati reali
-- **Stato Sistema**: Monitoraggio in tempo reale dello stato del sistema
+### 📊 Estrazione Dati HubSpot
+- **Deal Extraction**: Estrazione deal con cronologia
+- **Contact Extraction**: Estrazione contatti
+- **Company Extraction**: Estrazione aziende
+- **Pipeline Stages**: Estrazione fasi pipeline
+- **Paginazione Automatica**: Gestione grandi volumi dati
 
-### 🔗 Integrazione Completa
-- **Test Sistema**: Verifica completa dell'integrazione tra tutti i componenti
-- **Coordinamento**: Tutti i servizi lavorano in modo coordinato
-- **Monitoraggio**: Controllo continuo dello stato del sistema
-- **Logging**: Logging integrato per il debug e il monitoraggio
+### 🔍 Process Discovery
+- **DFG (Directly-Follows Graph)**: Generazione grafi processo
+- **Alpha Miner**: Discovery con algoritmo Alpha
+- **Heuristic Miner**: Discovery con euristica
+- **Inductive Miner**: Discovery induttivo
+- **Variant Analysis**: Analisi varianti processo
 
-## Installazione
+### ✅ Data Quality
+- **Schema Validation**: Validazione schema event log
+- **Completeness Check**: Controllo completezza dati
+- **Consistency Check**: Controllo consistenza
+- **Quality Reports**: Report dettagliati qualità
+
+### 🔒 Privacy e GDPR
+- **Pseudonimizzazione**: Hash email con salt
+- **Data Retention**: Policy retention automatica
+- **Audit Log**: Tracciamento accessi dati
+- **GDPR Compliance**: Validazione compliance
+
+### ⚙️ Task Asincroni (Celery)
+- **ETL Tasks**: Elaborazione asincrona ETL
+- **Mining Tasks**: Calcoli mining in background
+- **Data Quality Tasks**: Controlli qualità asincroni
+- **Redis Broker**: Gestione code messaggi
+
+## Installazione e Configurazione
 
 ### Prerequisiti
-- Python 3.10+
-- HubSpot API Key (opzionale, il sistema funziona anche senza)
+- Python 3.12+
+- Docker & Docker Compose (opzionale)
+- HubSpot API Key (per integrazione reale)
 
 ### Setup Rapido
 
@@ -56,271 +116,226 @@ Questo è un sistema Process Mining completamente **plastico** e **auto-adattivo
    cd Process-Mining
    ```
 
-2. **Installa le dipendenze**
+2. **Installa dipendenze**
    ```bash
-   pip install -r requirements.txt
+   poetry install
    ```
 
-3. **Configura l'ambiente**
+3. **Configura ambiente**
    ```bash
-   # Crea il file .env nella root del progetto
-   echo "HUBSPOT_API_KEY=tua_api_key" > .env
+   # Crea file .env
+   cp .env.example .env
+   # Configura variabili HubSpot
+   HUBSPOT_CLIENT_ID=your_client_id
+   HUBSPOT_CLIENT_SECRET=your_client_secret
+   HUBSPOT_REDIRECT_URI=http://localhost:8000/api/v1/auth/callback
    ```
 
-4. **Avvia il sistema**
+4. **Avvia sistema**
    ```bash
+   # Avvia API FastAPI
    python main.py
+   
+   # Avvia worker Celery (opzionale)
+   poetry run celery -A app.tasks.worker.celery_app worker --loglevel=info
    ```
 
-## Modalità di Esecuzione
+### Docker Setup
 
-### Modalità Completa (Default)
-Avvia tutto il sistema con bootstrap automatico:
 ```bash
-python main.py --mode full
+# Avvia tutti i servizi
+docker-compose up -d
+
+# Verifica stato
+docker-compose ps
+
+# Log
+docker-compose logs -f
 ```
 
-### Solo Bootstrap
-Esegue solo il bootstrap del sistema:
+## API Endpoints
+
+### Autenticazione
+- `GET /api/v1/auth/hubspot/login` - Inizio OAuth
+- `GET /api/v1/auth/callback` - Callback OAuth
+- `POST /api/v1/auth/refresh` - Refresh token
+- `GET /api/v1/auth/status` - Stato autenticazione
+
+### Connessione HubSpot
+- `GET /api/v1/connector/deals` - Lista deal
+- `GET /api/v1/connector/contacts` - Lista contatti
+- `GET /api/v1/connector/companies` - Lista aziende
+- `GET /api/v1/connector/pipeline-stages` - Fasi pipeline
+
+### Mining Processi
+- `POST /api/v1/mining/discover` - Process Discovery
+- `POST /api/v1/mining/conformance` - Conformance Checking
+- `GET /api/v1/mining/variants` - Analisi varianti
+- `GET /api/v1/mining/kpi` - Calcolo KPI
+
+### Data Quality
+- `POST /api/v1/dq/validate` - Validazione dati
+- `GET /api/v1/dq/report` - Report qualità
+- `POST /api/v1/dq/fix` - Correzione dati
+
+### Gestione Processi
+- `GET /api/v1/processes` - Lista processi
+- `GET /api/v1/processes/{id}` - Dettaglio processo
+- `POST /api/v1/processes/analyze` - Analisi processo
+
+## Configurazione
+
+### Variabili Ambiente
 ```bash
-python main.py --mode bootstrap
+# HubSpot
+HUBSPOT_CLIENT_ID=your_client_id
+HUBSPOT_CLIENT_SECRET=your_client_secret
+HUBSPOT_REDIRECT_URI=http://localhost:8000/api/v1/auth/callback
+
+# Database
+DATABASE_URL=sqlite:///./app/data/process_mining.db
+
+# Celery
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# Privacy
+EMAIL_HASH_SALT=your_salt_here
+DATA_RETENTION_DAYS=365
+PSEUDONYMIZATION_ENABLED=true
 ```
 
-### Solo ETL
-Avvia solo il sistema ETL reattivo:
-```bash
-python main.py --mode etl
-```
+### Configurazione HubSpot
+Il sistema richiede un'app HubSpot configurata con:
+- **Scopes**: `crm.objects.deals.read`, `crm.objects.contacts.read`, `crm.objects.companies.read`
+- **Redirect URI**: Configurato in HubSpot Developer Portal
 
-### Solo UI
-Avvia solo l'interfaccia utente:
-```bash
-python main.py --mode ui
-```
+## Testing
 
 ### Test Sistema
-Esegue il test completo del sistema:
 ```bash
-python main.py --mode test
+# Test integrazione completo
+python -c "from app.core.integration import run_full_system_test_sync; run_full_system_test_sync()"
+
+# Test unitari
+poetry run pytest tests/
+
+# Test specifici
+poetry run pytest tests/test_etl.py -v
 ```
 
-### Test Solo (Esci dopo il test)
-Esegue il test e poi esce:
+### Test API
 ```bash
-python main.py --test-only
+# Health check
+curl http://localhost:8000/health
+
+# Test autenticazione
+curl http://localhost:8000/api/v1/auth/status
 ```
 
-## Opzioni Avanzate
+## Monitoraggio
 
-### Disabilitare Componenti
+### Log
+- `logs/app.log`: Log principale applicazione
+- `logs/integration_tests/`: Risultati test integrazione
+- `logs/bootstrap_results/`: Risultati bootstrap
+
+### Health Check
 ```bash
-# Avvia senza bootstrap automatico
-python main.py --no-bootstrap
+# Verifica stato sistema
+curl http://localhost:8000/health
 
-# Avvia senza ETL automatico
-python main.py --no-etl
-
-# Avvia senza UI automatica
-python main.py --no-ui
+# Stato servizi
+curl http://localhost:8000/
 ```
 
-### Esempi di Combinazioni
+## Deployment
+
+### Produzione
 ```bash
-# Avvia UI senza bootstrap (se già configurato)
-python main.py --mode ui --no-bootstrap
+# Build Docker
+docker build -t process-mining:latest .
 
-# Avvia ETL con bootstrap ma senza UI
-python main.py --mode etl --no-ui
+# Deploy
+docker-compose -f docker-compose.prod.yml up -d
 
-# Test completo senza bootstrap (se già configurato)
-python main.py --mode test --no-bootstrap
-```
-
-## Struttura del Sistema
-
-```
-Process-Mining/
-├── main.py                          # Script principale di avvio
-├── app/
-│   ├── core/
-│   │   ├── bootstrap.py            # Sistema di bootstrap e auto-discovery
-│   │   ├── config.py               # Configurazione aggiornata con bootstrap
-│   │   └── integration.py          # Sistema di integrazione e testing
-│   ├── services/
-│   │   └── etl/
-│   │       └── reactive_etl.py     # Sistema ETL reattivo
-│   └── ui/
-│       └── main.py                 # UI completamente dinamica
-├── data/                           # Directory dati (creata automaticamente)
-│   ├── raw/                        # Dati grezzi
-│   ├── processed/                  # Dati processati
-│   └── warehouse/                  # Data warehouse
-└── logs/                           # Log sistema (creata automaticamente)
+# Health check
+curl https://your-domain.com/health
 ```
 
-## Flusso di Lavoro
-
-### 1. Avvio Sistema
-```
-python main.py
-├── Bootstrap Automatico
-│   ├── Creazione Directory
-│   ├── Scoperta HubSpot (se API key disponibile)
-│   ├── Configurazione Dinamica
-│   └── Validazione Sistema
-├── Avvio ETL Reattivo
-├── Avvio UI Dinamica
-└── Monitoraggio Continuo
-```
-
-### 2. Auto-Discovery HubSpot
-```
-Bootstrap Manager
-├── Analisi Struttura Deal
-├── Scoperta Pipeline Stages
-├── Identificazione Proprietà
-├── Generazione Configurazione
-└── Validazione Finale
+### Configurazione Reverse Proxy (Nginx)
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
-### 3. ETL Reattivo
-```
-Reactive ETL Manager
-├── Monitoraggio File (ogni 5 minuti)
-├── Rilevamento Nuovi Dati
-├── Attivazione Pipeline ETL
-├── Elaborazione Dati
-├── Controllo Qualità
-└── Governance Privacy
-```
-
-### 4. UI Dinamica
-```
-Dynamic UI Manager
-├── Rilevamento Dati Disponibili
-├── Caricamento Dati Reali
-├── Calcolo Metriche Dinamiche
-├── Generazione Visualizzazioni
-└── Aggiornamento in Tempo Reale
-```
-
-## Output del Sistema
-
-### Bootstrap Output
-```
-🚀 Avvio bootstrap sistema Process Mining
-📁 Setup directory sistema
-✅ Setup directory completato: 7 directory create/verificate
-🔍 Verifica configurazione esistente
-📊 Analisi struttura deal HubSpot
-🔄 Scoperta pipeline stages
-📋 Scoperta proprietà disponibili
-⚙️ Generazione configurazione raccomandata
-💾 Applicazione configurazione scoperta
-✅ Bootstrap sistema completato con successo
-```
-
-### ETL Output
-```
-🔄 Avvio sistema ETL reattivo
-📁 Trovati 3 file recenti, attivazione ETL
-📥 Inizio estrazione dati
-🔄 Inizio trasformazione dati
-🔍 Inizio controllo qualità dati
-🔒 Inizio governance privacy
-💾 Salvataggio risultati
-✅ Pipeline ETL completata con successo
-```
-
-### UI Output
-```
-🖥️ Avvio interfaccia utente
-📊 Process Mining Dashboard
-📈 Panoramica Generale
-📊 150 eventi | 🔄 25 casi | 📋 8 attività
-🔄 Mappa Processo
-📊 Key Performance Indicators
-⚠️ Rilevamento Anomalie
-```
-
-## Risoluzione dei Problemi
+## Troubleshooting
 
 ### Problemi Comuni
 
-#### 1. HubSpot API Key Non Disponibile
-```
-⚠️ HubSpot API key non disponibile, creazione configurazione base
-✅ Configurazione base creata
-```
-**Soluzione**: Aggiungi la tua API key al file `.env`
-
-#### 2. Directory Non Create
-```
-❌ Errore nella creazione directory: Permission denied
-```
-**Soluzione**: Verifica i permessi della directory di esecuzione
-
-#### 3. Errori di Connessione
-```
-❌ Errore API HubSpot durante discovery: Connection timeout
-```
-**Soluzione**: Controlla la connessione internet e la validità dell'API key
-
-#### 4. Errori UI
-```
-❌ Errore applicazione UI: ModuleNotFoundError
-```
-**Soluzione**: Installa le dipendenze mancanti con `pip install -r requirements.txt`
-
-### Log di Sistema
-Tutti i log sono salvati nella directory `logs/`:
-- `app.log`: Log principale dell'applicazione
-- `bootstrap_results/`: Risultati dei bootstrap
-- `integration_tests/`: Risultati dei test di integrazione
-
-### Debug
-Per abilitare il debug dettagliato:
+#### Errore Autenticazione HubSpot
 ```bash
-export LOG_LEVEL=DEBUG
+# Verifica variabili ambiente
+echo $HUBSPOT_CLIENT_ID
+echo $HUBSPOT_CLIENT_SECRET
+
+# Test connessione
+curl http://localhost:8000/api/v1/auth/status
+```
+
+#### Errore Database
+```bash
+# Verifica database
+ls -la app/data/
+
+# Ricrea database
+rm app/data/process_mining.db
 python main.py
 ```
 
-## Personalizzazione
+#### Errore Celery Worker
+```bash
+# Verifica Redis
+redis-cli ping
 
-### Configurazione ETL
-Modifica `app/core/config.py` per personalizzare:
-- Intervalli di estrazione
-- Soglie di qualità dati
-- Configurazioni privacy
+# Avvia worker manuale
+poetry run celery -A app.tasks.worker.celery_app worker --loglevel=debug
+```
 
-### Configurazione UI
-Modifica `app/ui/main.py` per personalizzare:
-- Layout dashboard
-- Metriche visualizzate
-- Stili e temi
+### Debug
+```bash
+# Log dettagliato
+export LOG_LEVEL=DEBUG
+python main.py
 
-### Configurazione Bootstrap
-Modifica `app/core/bootstrap.py` per personalizzare:
-- Logica di discovery
-- Criteri di configurazione
-- Validazione sistema
+# Test specifico
+poetry run pytest tests/test_etl.py::test_extraction -v -s
+```
 
 ## Contribuire
 
-1. Fork del repository
-2. Crea un branch per la tua feature: `git checkout -b feature/nome-feature`
-3. Commit delle modifiche: `git commit -m 'Aggiunta feature X'`
-4. Push sul branch: `git push origin feature/nome-feature`
-5. Apri una Pull Request
+1. Fork repository
+2. Crea branch feature: `git checkout -b feature/nome-feature`
+3. Commit modifiche: `git commit -m 'Aggiunta feature X'`
+4. Push branch: `git push origin feature/nome-feature`
+5. Apri Pull Request
 
 ## Licenza
 
-Questo progetto è rilasciato sotto licenza MIT. Vedi il file `LICENSE` per i dettagli.
+MIT License - Vedere file LICENSE per dettagli.
 
 ## Supporto
 
-Per supporto e domande:
-- Crea una Issue su GitHub
-- Controlla i log di sistema
-- Verifica la configurazione HubSpot
-- Esegui il test di sistema: `python main.py --test-only`
+- **Issues**: GitHub Issues
+- **Documentazione**: README.md e docs/
+- **Test**: `poetry run pytest tests/`

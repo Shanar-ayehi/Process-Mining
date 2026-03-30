@@ -2,315 +2,408 @@
 
 ## Panoramica del Progetto
 
-Abbiamo implementato un sistema completo di Process Mining che si integra perfettamente con HubSpot tramite External Cards, permettendo l'analisi dei processi aziendali direttamente dall'interfaccia HubSpot.
+Sistema Process Mining basato su **FastAPI** che integra HubSpot tramite OAuth 2.0 per l'analisi dei processi aziendali.
 
 ## Architettura del Sistema
 
 ### Backend (FastAPI)
-- **Linguaggio**: Python 3.10+
-- **Framework**: FastAPI con Uvicorn
-- **Database**: PostgreSQL
+- **Linguaggio**: Python 3.12
+- **Framework**: FastAPI + Uvicorn
+- **Database**: SQLite
 - **Porta**: 8000
 - **Struttura**: Modulare con separazione tra API, servizi e core
 
-### Frontend (React)
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **UI Library**: Material-UI (MUI)
-- **Router**: React Router DOM
-- **Porta**: 3000
-- **Stile**: Design professionale e responsive
-
 ### Integrazione HubSpot
-- **Metodo**: External Cards via iframe
-- **Autenticazione**: OAuth 2.0
-- **Comunicazione**: PostMessage API
-- **Sicurezza**: HTTPS, CORS, CSP headers
+- **Metodo**: OAuth 2.0
+- **Autenticazione**: HubSpot OAuth 2.0
+- **Client**: `app/connectors/hubspot_client.py`
+- **Database**: SQLite per storage token
+
+### Process Mining
+- **Library**: PM4Py
+- **Algoritmi**: DFG, Alpha Miner, Heuristic Miner, Inductive Miner
+- **Analisi**: Conformance Checking, Variant Analysis, KPI Calculation
 
 ## Componenti Implementati
 
-### Backend Components
+### 1. API REST (FastAPI)
 
-#### 1. Core System
-- **Database**: Configurazione PostgreSQL con SQLAlchemy
-- **Configurazione**: Sistema centralizzato con validazione
-- **Logger**: Logging strutturato e configurabile
-- **Sicurezza**: Gestione privacy e dati sensibili
+#### Core System
+- **FastAPI App**: `app/api/main.py`
+- **Database**: SQLite con SQLAlchemy
+- **Configurazione**: Centralizzata in `app/core/config.py`
+- **Logger**: Logging strutturato
+- **Sicurezza**: CORS, gestione errori
 
-#### 2. HubSpot Integration
-- **Client**: Connessione HubSpot API con gestione token
-- **Mapper**: Mappatura dati HubSpot → Event Log
-- **Config**: Schema configurazione HubSpot
+#### API Endpoints
+- **Autenticazione**: OAuth 2.0 flow completo
+- **Connector**: Estrazione dati HubSpot
+- **Mining**: Process Discovery e Conformance
+- **Data Quality**: Validazione e report
+- **Process Management**: Gestione processi
 
-#### 3. ETL Services
-- **Data Extraction**: Estrazione dati da HubSpot
-- **Data Discovery**: Scoperta automatica processi
-- **Data Quality**: Controllo qualità dati
-- **Data Transformation**: Trasformazione in Event Log
-- **Privacy Governance**: Gestione privacy dati
+### 2. Connettori
 
-#### 4. Process Mining Services
-- **Discovery Service**: Algoritmi di discovery (Alpha, Heuristics, Inductive)
-- **Conformance Service**: Controllo conformità processi
-- **KPI Service**: Calcolo metriche e KPI
+#### HubSpot Client (`app/connectors/hubspot_client.py`)
+- **OAuth 2.0**: Autenticazione completa
+- **Token Management**: Refresh automatico
+- **Rate Limiting**: Gestione limiti API
+- **Retry**: Backoff esponenziale
+- **Metodi**:
+  - `get_deals()`: Estrazione deal
+  - `get_contacts()`: Estrazione contatti
+  - `get_companies()`: Estrazione aziende
+  - `get_pipeline_stages()`: Estrazione pipeline
+  - `get_timeline_events()`: Estrazione eventi
 
-#### 5. API REST
-- **Process Management**: Gestione processi e analisi
-- **Analytics**: Endpoint analisi e visualizzazioni
-- **Data Quality**: Controllo qualità dati
-- **Mining**: Discovery e conformance checking
+#### HubSpot Mapper (`app/connectors/hubspot_mapper.py`)
+- Mapping proprietà HubSpot → event log
+- Supporto diversi template pipeline
+- Conversione formato dati
 
-### Frontend Components
+### 3. Servizi ETL
 
-#### 1. UI Components
-- **ProcessList**: Lista processi con ricerca e filtri
-- **ProcessDetail**: Dettagli processo e varianti
-- **ProcessAnalysis**: Monitoraggio analisi e risultati
-- **Dashboard**: Visualizzazioni grafiche interattive
+#### Data Extraction (`app/services/etl/data_extraction.py`)
+- Estrazione deal con cronologia
+- Estrazione contatti e aziende
+- Paginazione automatica
+- Salvataggio JSON con timestamp
 
-#### 2. Features Principali
-- **Real-time Updates**: Stato analisi in tempo reale
-- **Search & Filter**: Ricerca avanzata processi
-- **Responsive Design**: Adattamento a diversi schermi
-- **Error Handling**: Gestione errori e loading states
-- **Charts Integration**: Grafici interattivi
+#### Data Transformation (`app/services/etl/data_transformation.py`)
+- Conversione JSON → event log
+- Validazione schema
+- Pseudonimizzazione (opzionale)
+- Salvataggio Parquet
 
-## API Endpoints Principali
+#### Data Quality (`app/services/etl/data_quality.py`)
+- Validazione schema event log
+- Controllo completezza dati
+- Controllo consistenza
+- Generazione report qualità
 
-### Process Management
-```bash
-GET    /api/v1/processes                    # Lista processi
-GET    /api/v1/processes/{id}              # Dettagli processo
-POST   /api/v1/processes/{id}/analyze      # Avvia analisi
-GET    /api/v1/processes/{id}/analysis/status  # Stato analisi
-GET    /api/v1/processes/{id}/analysis/results # Risultati analisi
-GET    /api/v1/processes/{id}/variants     # Varianti processo
-```
+#### Privacy Governance (`app/services/etl/privacy_governance.py`)
+- Pseudonimizzazione email
+- Data retention policy
+- Audit log accessi
+- Validazione GDPR compliance
 
-### Analytics
-```bash
-GET    /api/v1/analytics/processes         # Statistiche processi
-GET    /api/v1/analytics/variants          # Analisi varianti
-GET    /api/v1/analytics/trends            # Trend temporali
-GET    /api/v1/analytics/compliance        # Conformità processi
-```
+### 4. Servizi Mining
+
+#### Discovery Service (`app/services/mining/discovery_service.py`)
+- **DFG**: Directly-Follows Graph
+- **Alpha Miner**: Discovery con algoritmo Alpha
+- **Heuristic Miner**: Discovery con euristica
+- **Inductive Miner**: Discovery induttivo
+- **Variant Analysis**: Analisi varianti processo
+
+#### Conformance Service (`app/services/mining/conformance_service.py`)
+- Conformance checking DFG
+- Conformance checking Petri Net
+- Deviation pattern detection
+- Fitness e precision calculation
+
+#### KPI Service (`app/services/mining/kpi_service.py`)
+- Calcolo KPI processo
+- Metriche performance
+- Analisi colli di bottiglia
+
+### 5. Task Asincroni (Celery)
+
+#### Worker (`app/tasks/worker.py`)
+- Configurazione Celery
+- Redis come broker
+- Task concurrency
+- Monitoring task
+
+#### Task ETL (`app/tasks/etl_task.py`)
+- Estrazione dati asincrona
+- Monitoraggio nuovi file
+- Elaborazione batch
+
+#### Task Mining (`app/tasks/mining_task.py`)
+- Process discovery asincrono
+- Conformance checking asincrono
+- Calcolo KPI asincrono
+
+#### Task Data Quality (`app/tasks/dq_task.py`)
+- Validazione asincrona
+- Report qualità periodici
+
+### 6. Core System
+
+#### Configurazione (`app/core/config.py`)
+- Variabili ambiente
+- Path directory
+- Configurazione database
+- Privacy settings
+- Mining settings
+
+#### Database (`app/core/database.py`)
+- Setup SQLite
+- Sessioni asincrone
+- Creazione tabelle
+
+#### Privacy (`app/core/privacy.py`)
+- Hash email con salt
+- Pseudonimizzazione DataFrame
+- Data retention
+- Audit log
+
+#### Bootstrap (`app/core/bootstrap.py`)
+- Setup directory
+- Validazione configurazione
+- Auto-discovery HubSpot
+
+#### Integration (`app/core/integration.py`)
+- Test sistema integrato
+- Health check componenti
+- Monitoring stato
+
+## API Endpoints Implementati
+
+### Autenticazione
+- `GET /api/v1/auth/hubspot/login` - Inizio OAuth
+- `GET /api/v1/auth/callback` - Callback OAuth
+- `POST /api/v1/auth/refresh` - Refresh token
+- `GET /api/v1/auth/status` - Stato autenticazione
+
+### Connessione HubSpot
+- `GET /api/v1/connector/deals` - Lista deal
+- `GET /api/v1/connector/contacts` - Lista contatti
+- `GET /api/v1/connector/companies` - Lista aziende
+- `GET /api/v1/connector/pipeline-stages` - Fasi pipeline
+
+### Mining Processi
+- `POST /api/v1/mining/discover` - Process Discovery
+- `POST /api/v1/mining/conformance` - Conformance Checking
+- `GET /api/v1/mining/variants` - Analisi varianti
+- `GET /api/v1/mining/kpi` - Calcolo KPI
 
 ### Data Quality
-```bash
-GET    /api/v1/dq/processes/{id}/report    # Report qualità
-POST   /api/v1/dq/processes/{id}/fix       # Correzione dati
-GET    /api/v1/dq/processes/{id}/metrics   # Metriche qualità
-```
+- `POST /api/v1/dq/validate` - Validazione dati
+- `GET /api/v1/dq/report` - Report qualità
 
-### Mining
-```bash
-GET    /api/v1/mining/processes/{id}/model # Modello processo
-GET    /api/v1/mining/processes/{id}/variants # Varianti scoperte
-POST   /api/v1/mining/processes/{id}/conformance # Conformance check
-GET    /api/v1/mining/processes/{id}/kpi   # KPI processo
-```
-
-## HubSpot Integration Features
-
-### External Cards Setup
-- **Iframe Integration**: Dashboard embedded in HubSpot
-- **Responsive Design**: Adattamento a dimensioni HubSpot
-- **Security**: HTTPS, CORS, CSP headers configurati
-- **Performance**: Ottimizzato per iframe loading
-
-### OAuth 2.0 Authentication
-- **Secure Auth**: Flusso OAuth 2.0 con HubSpot
-- **Token Management**: Gestione refresh token
-- **User Permissions**: Controllo permessi utente
-- **Session Management**: Gestione sessioni sicure
-
-### Data Integration
-- **Deal Pipeline**: Analisi pipeline vendite
-- **Contact Journey**: Percorsi cliente
-- **Company Lifecycle**: Ciclo di vita aziende
-- **Custom Objects**: Supporto oggetti custom HubSpot
+### Gestione Processi
+- `GET /api/v1/processes` - Lista processi
+- `GET /api/v1/processes/{id}` - Dettaglio processo
+- `POST /api/v1/processes/analyze` - Analisi processo
 
 ## Tecnologie Utilizzate
 
 ### Backend Stack
-- **Python 3.10+**: Linguaggio principale
+- **Python 3.12**: Linguaggio principale
 - **FastAPI**: Framework web asincrono
-- **PostgreSQL**: Database relazionale
+- **SQLite**: Database
 - **SQLAlchemy**: ORM
 - **Pydantic**: Validazione dati
 - **PM4Py**: Process Mining library
-- **Requests**: HTTP client
-- **Cryptography**: Crittografia dati
+- **Celery**: Task asincroni
+- **Redis**: Message broker
+- **httpx**: HTTP client asincrono
 
-### Frontend Stack
-- **React 18**: Framework UI
-- **TypeScript**: Type safety
-- **Vite**: Build tool veloce
-- **Material-UI**: Componenti UI
-- **React Router**: Routing
-- **Axios**: HTTP client
-- **Chart.js**: Visualizzazioni grafiche
-
-### DevOps & Deployment
+### DevOps
 - **Docker**: Containerizzazione
 - **Docker Compose**: Orchestrazione
-- **Render.com**: Deploy cloud
-- **GitHub Actions**: CI/CD
-- **Nginx**: Reverse proxy
-- **Let's Encrypt**: Certificati SSL
+- **Poetry**: Dependency management
 
-## Documentazione Creata
-
-### 1. README Principale
-- Descrizione progetto
-- Requisiti di sistema
-- Istruzioni installazione
-- Configurazione ambiente
-- Esempi d'uso
-
-### 2. HubSpot Integration Guide
-- Configurazione External Cards
-- Setup OAuth 2.0
-- Sicurezza e CORS
-- Testing e troubleshooting
-- Best practices
-
-### 3. Deploy & Testing Guide
-- Opzioni di deploy (Docker, Render, Railway)
-- Configurazione HTTPS
-- Testing completo (unit, integration, E2E)
-- Performance testing
-- Monitoring e logging
-- Troubleshooting
-
-### 4. Development Guide
-- Architettura sistema
-- Coding standards
-- Contributing guidelines
-- API documentation
-
-## File System Structure
+## Struttura File System
 
 ```
 Process-Mining/
-├── app/                          # Backend FastAPI
-│   ├── api/                      # API endpoints
-│   │   ├── main.py              # App principale
-│   │   ├── routes_*.py          # Route modules
-│   │   └── schemas.py           # Pydantic schemas
-│   ├── core/                     # Core functionality
-│   │   ├── config.py            # Configuration
-│   │   ├── database.py          # Database setup
-│   │   ├── logger.py            # Logging
-│   │   └── security.py          # Security
-│   ├── connectors/               # External integrations
-│   │   ├── hubspot_client.py    # HubSpot API client
-│   │   ├── hubspot_mapper.py    # Data mapping
-│   │   └── warehouse_client.py  # Data warehouse
-│   ├── services/                 # Business logic
-│   │   ├── etl/                 # ETL services
-│   │   ├── mining/              # Process mining
-│   │   └── integration/         # Integration services
-│   └── ui/                      # UI components
-│       ├── main.py              # UI main
-│       └── pages/               # UI pages
-├── frontend/                     # React frontend
-│   ├── src/
-│   │   ├── components/          # React components
-│   │   ├── App.tsx              # Main app
-│   │   ├── main.tsx             # Entry point
-│   │   └── index.css            # Global styles
-│   ├── package.json             # Dependencies
-│   ├── vite.config.ts           # Vite config
-│   └── README.md                # Frontend docs
-├── docs/                        # Documentation
-│   ├── HUBSPOT_INTEGRATION.md   # HubSpot setup
-│   ├── DEPLOY_AND_TESTING.md    # Deploy guide
-│   └── DEVELOPMENT.md           # Dev guidelines
-├── tests/                       # Test files
-├── data/                        # Sample data
-├── notebooks/                   # Jupyter notebooks
-├── docker-compose.yml           # Docker setup
-├── requirements.txt             # Python dependencies
-├── pyproject.toml              # Python project config
-└── README.md                   # Main documentation
+├── main.py                          # Entry point FastAPI
+├── app/
+│   ├── api/                         # API REST
+│   │   ├── main.py                  # App FastAPI
+│   │   ├── routes_connector.py      # Endpoint HubSpot
+│   │   ├── routes_mining.py         # Endpoint mining
+│   │   ├── routes_dq.py             # Endpoint data quality
+│   │   ├── routes_process_management.py  # Gestione processi
+│   │   ├── routes/auth.py           # Autenticazione OAuth
+│   │   └── routes_external_cards.py # External cards
+│   ├── connectors/                  # Connettori esterni
+│   │   ├── hubspot_client.py        # Client HubSpot OAuth
+│   │   └── hubspot_mapper.py        # Mapping dati
+│   ├── core/                        # Funzionalità core
+│   │   ├── config.py                # Configurazione
+│   │   ├── database.py              # Database SQLite
+│   │   ├── logger.py                # Logging
+│   │   ├── privacy.py               # Privacy GDPR
+│   │   ├── bootstrap.py             # Bootstrap sistema
+│   │   └── integration.py           # Test integrazione
+│   ├── services/                    # Logica business
+│   │   ├── etl/                     # Servizi ETL
+│   │   │   ├── data_extraction.py   # Estrazione dati
+│   │   │   ├── data_transformation.py # Trasformazione
+│   │   │   ├── data_quality.py      # Qualità dati
+│   │   │   └── privacy_governance.py # Privacy
+│   │   └── mining/                  # Servizi mining
+│   │       ├── discovery_service.py # Process Discovery
+│   │       ├── conformance_service.py # Conformance
+│   │       └── kpi_service.py       # Calcolo KPI
+│   ├── tasks/                       # Task Celery
+│   │   ├── worker.py                # Worker Celery
+│   │   ├── etl_task.py              # Task ETL
+│   │   ├── mining_task.py           # Task mining
+│   │   └── dq_task.py               # Task data quality
+│   └── models/                      # Modelli database
+│       └── auth.py                  # Modelli autenticazione
+├── data/                            # Directory dati
+│   ├── raw/                         # Dati grezzi
+│   ├── processed/                   # Dati processati
+│   └── warehouse/                   # Data warehouse
+├── logs/                            # Log sistema
+├── docker-compose.yml               # Configurazione Docker
+├── pyproject.toml                   # Configurazione Python
+└── README.md                        # Documentazione
 ```
 
-## Implementazione Completa
+## Feature Implementate
 
 ### ✅ Completed Features
 
 1. **Backend FastAPI**
    - [x] API REST completa
-   - [x] Database PostgreSQL
-   - [x] HubSpot integration
-   - [x] ETL pipeline
-   - [x] Process mining services
-   - [x] Authentication & security
-   - [x] Logging & monitoring
-
-2. **Frontend React**
-   - [x] UI professionale
-   - [x] Componenti reattivi
-   - [x] Chart integration
-   - [x] Real-time updates
-   - [x] Responsive design
+   - [x] Database SQLite
+   - [x] Autenticazione OAuth 2.0
+   - [x] Logging e monitoring
    - [x] Error handling
 
-3. **HubSpot Integration**
-   - [x] External Cards setup
-   - [x] OAuth 2.0 authentication
-   - [x] iframe integration
-   - [x] Security configuration
-   - [x] Parameter passing
-   - [x] PostMessage communication
+2. **Integrazione HubSpot**
+   - [x] Client OAuth 2.0
+   - [x] Estrazione deal, contatti, aziende
+   - [x] Pipeline stages
+   - [x] Timeline events
+   - [x] Rate limiting
 
-4. **Deployment Ready**
-   - [x] Docker configuration
-   - [x] Environment setup
-   - [x] HTTPS configuration
-   - [x] CI/CD pipeline
-   - [x] Monitoring setup
-   - [x] Documentation completa
+3. **ETL Pipeline**
+   - [x] Estrazione dati
+   - [x] Trasformazione event log
+   - [x] Validazione qualità
+   - [x] Privacy governance
 
-### 🚀 Ready for Production
+4. **Process Mining**
+   - [x] Process Discovery (DFG, Alpha, Heuristic, Inductive)
+   - [x] Conformance Checking
+   - [x] Variant Analysis
+   - [x] KPI Calculation
 
-Il sistema è completamente funzionale e pronto per il deploy in produzione:
+5. **Task Asincroni**
+   - [x] Celery worker
+   - [x] ETL tasks
+   - [x] Mining tasks
+   - [x] Data quality tasks
 
-- **Scalabile**: Architettura modulare
-- **Sicuro**: Authentication, HTTPS, CORS
-- **Monitorabile**: Logging e metrics
-- **Documentato**: Guida completa implementazione
-- **Testato**: Unit, integration, E2E tests
-- **Integrato**: HubSpot External Cards ready
+6. **Privacy e GDPR**
+   - [x] Pseudonimizzazione email
+   - [x] Data retention policy
+   - [x] Audit log
+   - [x] Compliance validation
+
+## Configurazione
+
+### Variabili Ambiente
+```bash
+# HubSpot OAuth
+HUBSPOT_CLIENT_ID=your_client_id
+HUBSPOT_CLIENT_SECRET=your_client_secret
+HUBSPOT_REDIRECT_URI=http://localhost:8000/api/v1/auth/callback
+
+# Database
+DATABASE_URL=sqlite:///./app/data/process_mining.db
+
+# Celery
+CELERY_BROKER_URL=redis://localhost:6379/0
+
+# Privacy
+EMAIL_HASH_SALT=your_salt_here
+DATA_RETENTION_DAYS=365
+```
+
+## Testing
+
+### Test Implementati
+- Unit test per servizi ETL
+- Unit test per servizi mining
+- Integration test sistema completo
+- Test API endpoints
+
+### Comandi Test
+```bash
+# Test unitari
+poetry run pytest tests/
+
+# Test specifici
+poetry run pytest tests/test_etl.py -v
+poetry run pytest tests/test_mining.py -v
+
+# Test integrazione
+python -c "from app.core.integration import run_full_system_test_sync; run_full_system_test_sync()"
+```
+
+## Deploy
+
+### Docker
+```bash
+# Avvia tutti i servizi
+docker-compose up -d
+
+# Verifica stato
+docker-compose ps
+
+# Log
+docker-compose logs -f
+```
+
+### Produzione
+```bash
+# Build immagine
+docker build -t process-mining:latest .
+
+# Deploy
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+## Monitoraggio
+
+### Health Check
+```bash
+# Verifica salute sistema
+curl http://localhost:8000/health
+
+# Stato endpoint
+curl http://localhost:8000/
+```
+
+### Log
+- `logs/app.log`: Log principale
+- `logs/integration_tests/`: Risultati test
+- `logs/bootstrap_results/`: Risultati bootstrap
 
 ## Prossimi Passi
 
-### Deploy in Produzione
-1. Configurare ambiente cloud (Render.com, Railway, ecc.)
-2. Setup database production
-3. Configurare HTTPS e domini
-4. Deploy backend e frontend
-5. Configurare HubSpot External Cards
-6. Testing completo
-7. Go-live
+### Miglioramenti Futuri
+1. **Frontend**: Implementare UI Streamlit o React
+2. **Database**: Migliorare schema e indici
+3. **Performance**: Ottimizzazione query e caching
+4. **Monitoring**: Dashboard metriche
+5. **Security**: Autenticazione avanzata
 
-### Estensioni Future
-1. **Machine Learning**: Predictive analytics
-2. **Real-time Processing**: Streaming data
-3. **Advanced Visualizations**: 3D graphs, heatmaps
-4. **Multi-tenant**: Supporto multi-azienda
-5. **Mobile App**: App mobile dedicata
-6. **Advanced Analytics**: AI-powered insights
+### Estensioni
+1. **Multi-tenant**: Supporto multi-azienda
+2. **Real-time**: Streaming data processing
+3. **Advanced Analytics**: ML-powered insights
+4. **Mobile App**: App mobile dedicata
 
 ## Conclusioni
 
-Abbiamo creato un sistema Process Mining completo, professionale e integrato con HubSpot che permette alle aziende di:
+Il sistema Process Mining è **completamente implementato** e **funzionante** con:
 
-- **Analizzare processi** in modo automatico
-- **Identificare inefficienze** e colli di bottiglia
-- **Monitorare performance** in tempo reale
-- **Prendere decisioni** basate sui dati
-- **Integrare perfettamente** con HubSpot
+- ✅ **Backend FastAPI** completo
+- ✅ **Integrazione HubSpot** OAuth 2.0
+- ✅ **ETL Pipeline** funzionante
+- ✅ **Process Mining** con PM4Py
+- ✅ **Data Quality** e Privacy
+- ✅ **Task asincroni** con Celery
+- ✅ **Docker** deployment ready
 
-Il sistema è **pronto per il deploy** e l'uso in produzione, con una documentazione completa che permette a qualsiasi team di sviluppo di implementarlo e mantenerlo.
+Il sistema è pronto per essere **deployato in produzione** e utilizzato per l'analisi dei processi aziendali.
