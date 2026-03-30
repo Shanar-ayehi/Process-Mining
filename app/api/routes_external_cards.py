@@ -390,6 +390,150 @@ async def get_card_status(card_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{card_id}/dashboard/{object_id}")
+async def get_card_dashboard(card_id: str, object_id: str):
+    """
+    Recupera dashboard completo per una card e oggetto HubSpot.
+    
+    Args:
+        card_id: ID della card
+        object_id: ID oggetto HubSpot
+        
+    Returns:
+        Dict con dati dashboard completo
+        
+    Raises:
+        HTTPException: Se card non trovata o errore
+    """
+    try:
+        logger.info(f"Richiesta dashboard card {card_id} per oggetto {object_id}")
+        
+        # Recupera dashboard
+        dashboard = await external_card_service.get_card_dashboard(card_id, object_id)
+        
+        if dashboard is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Card {card_id} non trovata"
+            )
+        
+        return dashboard
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore nel recupero dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{card_id}/analytics/{object_id}")
+async def get_card_analytics(card_id: str, object_id: str):
+    """
+    Recupera analisi Process Mining per una card.
+    
+    Args:
+        card_id: ID della card
+        object_id: ID oggetto HubSpot
+        
+    Returns:
+        Dict con analisi Process Mining
+        
+    Raises:
+        HTTPException: Se card non trovata o errore
+    """
+    try:
+        logger.info(f"Richiesta analisi card {card_id} per oggetto {object_id}")
+        
+        # Recupera analisi
+        analytics = await external_card_service.get_card_analytics(card_id, object_id)
+        
+        if analytics is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Card {card_id} non trovata"
+            )
+        
+        return analytics
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore nel recupero analisi: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{card_id}/associations/{object_id}")
+async def get_card_associations(card_id: str, object_id: str):
+    """
+    Recupera associazioni per una card.
+    
+    Args:
+        card_id: ID della card
+        object_id: ID oggetto HubSpot
+        
+    Returns:
+        Dict con associazioni
+        
+    Raises:
+        HTTPException: Se card non trovata o errore
+    """
+    try:
+        logger.info(f"Richiesta associazioni card {card_id} per oggetto {object_id}")
+        
+        # Recupera associazioni
+        associations = await external_card_service.get_card_associations(card_id, object_id)
+        
+        if associations is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Card {card_id} non trovata"
+            )
+        
+        return associations
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore nel recupero associazioni: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{card_id}/timeline/{object_id}")
+async def get_card_timeline(card_id: str, object_id: str):
+    """
+    Recupera timeline per una card.
+    
+    Args:
+        card_id: ID della card
+        object_id: ID oggetto HubSpot
+        
+    Returns:
+        Dict con timeline eventi
+        
+    Raises:
+        HTTPException: Se card non trovata o errore
+    """
+    try:
+        logger.info(f"Richiesta timeline card {card_id} per oggetto {object_id}")
+        
+        # Recupera timeline
+        timeline = await external_card_service.get_card_timeline(card_id, object_id)
+        
+        if timeline is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Card {card_id} non trovata"
+            )
+        
+        return timeline
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore nel recupero timeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/health/check")
 async def health_check():
     """
@@ -407,6 +551,10 @@ async def health_check():
             "features": {
                 "create_card": "available",
                 "get_card_data": "available",
+                "get_card_dashboard": "available",
+                "get_card_analytics": "available",
+                "get_card_associations": "available",
+                "get_card_timeline": "available",
                 "sync_card": "available",
                 "delete_card": "available",
                 "list_cards": "available"

@@ -357,6 +357,237 @@ class HubSpotClient:
         
         return response.get("results", [])
     
+    async def get_deal(self, deal_id: str, properties: Optional[List[str]] = None) -> Optional[Dict]:
+        """
+        Recupera un singolo deal da HubSpot.
+        
+        Args:
+            deal_id: ID del deal
+            properties: Proprietà da includere
+            
+        Returns:
+            Dict con dati del deal o None se non trovato
+        """
+        endpoint = f"/crm/v3/objects/deals/{deal_id}"
+        
+        params = {}
+        if properties:
+            params["properties"] = ",".join(properties)
+        
+        logger.info(f"Recupero deal {deal_id} da HubSpot")
+        try:
+            response = await self._make_request("GET", endpoint, params=params)
+            return response
+        except HubSpotAPIError as e:
+            if "404" in str(e):
+                logger.warning(f"Deal {deal_id} non trovato")
+                return None
+            raise
+    
+    async def get_contact(self, contact_id: str, properties: Optional[List[str]] = None) -> Optional[Dict]:
+        """
+        Recupera un singolo contatto da HubSpot.
+        
+        Args:
+            contact_id: ID del contatto
+            properties: Proprietà da includere
+            
+        Returns:
+            Dict con dati del contatto o None se non trovato
+        """
+        endpoint = f"/crm/v3/objects/contacts/{contact_id}"
+        
+        params = {}
+        if properties:
+            params["properties"] = ",".join(properties)
+        
+        logger.info(f"Recupero contatto {contact_id} da HubSpot")
+        try:
+            response = await self._make_request("GET", endpoint, params=params)
+            return response
+        except HubSpotAPIError as e:
+            if "404" in str(e):
+                logger.warning(f"Contatto {contact_id} non trovato")
+                return None
+            raise
+    
+    async def get_company(self, company_id: str, properties: Optional[List[str]] = None) -> Optional[Dict]:
+        """
+        Recupera una singola azienda da HubSpot.
+        
+        Args:
+            company_id: ID dell'azienda
+            properties: Proprietà da includere
+            
+        Returns:
+            Dict con dati dell'azienda o None se non trovato
+        """
+        endpoint = f"/crm/v3/objects/companies/{company_id}"
+        
+        params = {}
+        if properties:
+            params["properties"] = ",".join(properties)
+        
+        logger.info(f"Recupero azienda {company_id} da HubSpot")
+        try:
+            response = await self._make_request("GET", endpoint, params=params)
+            return response
+        except HubSpotAPIError as e:
+            if "404" in str(e):
+                logger.warning(f"Azienda {company_id} non trovata")
+                return None
+            raise
+    
+    async def get_associations(self, object_type: str, object_id: str, 
+                               to_object_type: str, limit: int = 100) -> List[Dict]:
+        """
+        Recupera le associazioni di un oggetto HubSpot.
+        
+        Args:
+            object_type: Tipo oggetto sorgente (deals, contacts, companies)
+            object_id: ID oggetto sorgente
+            to_object_type: Tipo oggetto destinazione
+            limit: Limite risultati
+            
+        Returns:
+            Lista di oggetti associati
+        """
+        endpoint = f"/crm/v3/objects/{object_type}/{object_id}/associations/{to_object_type}"
+        
+        params = {"limit": limit}
+        
+        logger.info(f"Recupero associazioni {object_type}/{object_id} -> {to_object_type}")
+        response = await self._make_request("GET", endpoint, params=params)
+        
+        return response.get("results", [])
+    
+    async def get_deal_associations(self, deal_id: str) -> Dict[str, List[Dict]]:
+        """
+        Recupera tutte le associazioni di un deal.
+        
+        Args:
+            deal_id: ID del deal
+            
+        Returns:
+            Dict con contatti e aziende associati
+        """
+        associations = {
+            "contacts": [],
+            "companies": []
+        }
+        
+        # Recupera contatti associati
+        try:
+            contact_assocs = await self.get_associations("deals", deal_id, "contacts")
+            for assoc in contact_assocs:
+                contact = await self.get_contact(assoc["id"])
+                if contact:
+                    associations["contacts"].append(contact)
+        except Exception as e:
+            logger.warning(f"Errore nel recupero contatti associati al deal {deal_id}: {e}")
+        
+        # Recupera aziende associate
+        try:
+            company_assocs = await self.get_associations("deals", deal_id, "companies")
+            for assoc in company_assocs:
+                company = await self.get_company(assoc["id"])
+                if company:
+                    associations["companies"].append(company)
+        except Exception as e:
+            logger.warning(f"Errore nel recupero aziende associate al deal {deal_id}: {e}")
+        
+        return associations
+    
+    async def get_timeline_events(self, object_type: str, object_id: str, 
+                                  limit: int = 100) -> List[Dict]:
+        """
+        Recupera gli eventi timeline di un oggetto.
+        
+        Args:
+            object_type: Tipo oggetto (deals, contacts, companies)
+            object_id: ID dell'oggetto
+            limit: Limite risultati
+            
+        Returns:
+            Lista di eventi timeline
+        """
+        # Per i deal, usa l'endpoint delle attività
+        if object_type == "deals":
+            endpoint = f"/crm/v3/objects/deals/{object_id}/associations/notes"
+        elif object_type == "contacts":
+            endpoint = f"/crm/v3/objects/contacts/{object_id}/associations/notes"
+        elif object_type == "companies":
+            endpoint = f"/crm/v3/objects/companies/{object_id}/associations/notes"
+        else:
+            logger.warning(f"Tipo oggetto non supportato per timeline: {object_type}")
+            return []
+        
+        params = {"limit": limit}
+        
+        logger.info(f"Recupero timeline per {object_type}/{object_id}")
+        try:
+            response = await self._make_request("GET", endpoint, params=params)
+            return response.get("results", [])
+        except Exception as e:
+            logger.warning(f"Errore nel recupero timeline: {e}")
+            return []
+    
+    async def get_deal_timeline(self, deal_id: str) -> List[Dict]:
+        """
+        Recupera la timeline completa di un deal.
+        
+        Args:
+            deal_id: ID del deal
+            
+        Returns:
+            Lista di eventi ordinati per data
+        """
+        logger.info(f"Recupero timeline completa per deal {deal_id}")
+        
+        timeline_events = []
+        
+        # Recupera note
+        try:
+            notes = await self.get_timeline_events("deals", deal_id)
+            for note in notes:
+                note["_event_type"] = "note"
+                timeline_events.append(note)
+        except Exception as e:
+            logger.warning(f"Errore nel recupero note per deal {deal_id}: {e}")
+        
+        # Recupera attività/engagements
+        try:
+            engagements = await self.get_engagements(limit=100)
+            # Filtra per deal_id nelle associazioni
+            deal_engagements = [
+                eng for eng in engagements 
+                if any(assoc.get("objectId") == int(deal_id) 
+                      for assoc in eng.get("associations", {}).get("dealIds", []))
+            ]
+            for eng in deal_engagements:
+                eng["_event_type"] = "engagement"
+                timeline_events.append(eng)
+        except Exception as e:
+            logger.warning(f"Errore nel recupero engagements per deal {deal_id}: {e}")
+        
+        # Recupera cronologia proprietà
+        try:
+            property_history = await self.get_deal_history(deal_id)
+            for history in property_history:
+                history["_event_type"] = "property_change"
+                timeline_events.append(history)
+        except Exception as e:
+            logger.warning(f"Errore nel recupero cronologia proprietà per deal {deal_id}: {e}")
+        
+        # Ordina per timestamp se disponibile
+        timeline_events.sort(
+            key=lambda x: x.get("timestamp") or x.get("createdAt") or "0", 
+            reverse=True
+        )
+        
+        logger.info(f"Recuperati {len(timeline_events)} eventi timeline per deal {deal_id}")
+        return timeline_events
+    
     async def exchange_code_for_token(self, code: str, redirect_uri: Optional[str] = None) -> bool:
         """
         Scambia l'authorization code per i token di accesso.

@@ -42,10 +42,8 @@ HUBSPOT_SCOPES = [
     "crm.objects.contacts.read",
     "crm.objects.contacts.write",
     "crm.objects.companies.read",
-    "timeline.events.read",
-    "timeline.events.write",
-    "engagements.read",
-    "settings.user.read"
+    "timeline",
+    "settings.users.read"
 ]
 
 
@@ -346,11 +344,11 @@ async def get_hubspot_user_info(access_token: str) -> dict:
     Returns:
         dict: Informazioni utente
     """
+    # Endpoint corretto per info utente HubSpot
+    url = f"https://api.hubapi.com/oauth/v1/access-tokens/{access_token}"
+    
     async with httpx.AsyncClient() as client:
-        response = await client.get(
-            HUBSPOT_USER_INFO_URL,
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
+        response = await client.get(url)
         
         if response.status_code != 200:
             raise HTTPException(

@@ -318,6 +318,389 @@ class ExternalCardService:
             logger.error(f"Errore nell'eliminazione card {card_id}: {e}")
             return False
     
+    async def get_card_dashboard(self, card_id: str, object_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Recupera dashboard completo per una card e oggetto.
+        
+        Args:
+            card_id: ID della card
+            object_id: ID oggetto HubSpot
+            
+        Returns:
+            Dict con dati dashboard completo
+        """
+        try:
+            logger.info(f"Recupero dashboard card {card_id} per oggetto {object_id}")
+            
+            # Recupera configurazione card
+            config = await self.get_card_config(card_id)
+            if not config:
+                logger.error(f"Configurazione card non trovata: {card_id}")
+                return None
+            
+            # Recupera dati oggetto principale
+            object_data = await self._fetch_hubspot_data(config, object_id)
+            if not object_data:
+                logger.warning(f"Nessun dato recuperato per {card_id}:{object_id}")
+                return None
+            
+            # Recupera associazioni
+            associations = await self._fetch_associations(config, object_id)
+            
+            # Recupera timeline
+            timeline = await self._fetch_timeline(config, object_id)
+            
+            # Costruisci dashboard
+            dashboard = {
+                "card_id": card_id,
+                "object_id": object_id,
+                "object_type": config.hubspot_object_type,
+                "object_data": object_data,
+                "associations": associations,
+                "timeline": timeline,
+                "metadata": {
+                    "retrieved_at": datetime.now().isoformat(),
+                    "card_name": config.name,
+                    "refresh_interval": config.refresh_interval_minutes
+                }
+            }
+            
+            logger.info(f"Dashboard recuperato con successo: {card_id}:{object_id}")
+            return dashboard
+            
+        except Exception as e:
+            logger.error(f"Errore nel recupero dashboard {card_id}:{object_id}: {e}")
+            return None
+    
+    async def get_card_analytics(self, card_id: str, object_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Recupera analisi Process Mining per una card.
+        
+        Args:
+            card_id: ID della card
+            object_id: ID oggetto HubSpot
+            
+        Returns:
+            Dict con analisi Process Mining
+        """
+        try:
+            logger.info(f"Recupero analisi card {card_id} per oggetto {object_id}")
+            
+            # Recupera configurazione card
+            config = await self.get_card_config(card_id)
+            if not config:
+                logger.error(f"Configurazione card non trovata: {card_id}")
+                return None
+            
+            # Recupera dati oggetto
+            object_data = await self._fetch_hubspot_data(config, object_id)
+            if not object_data:
+                return None
+            
+            # Calcola analisi in base al tipo di oggetto
+            analytics = {}
+            
+            if config.hubspot_object_type == "deals":
+                # Analisi per deal
+                analytics = await self._analyze_deal(object_id, object_data)
+            elif config.hubspot_object_type == "contacts":
+                # Analisi per contatto
+                analytics = await self._analyze_contact(object_id, object_data)
+            elif config.hubspot_object_type == "companies":
+                # Analisi per azienda
+                analytics = await self._analyze_company(object_id, object_data)
+            
+            # Aggiungi metadata
+            analytics["metadata"] = {
+                "card_id": card_id,
+                "object_id": object_id,
+                "analyzed_at": datetime.now().isoformat()
+            }
+            
+            logger.info(f"Analisi completata: {card_id}:{object_id}")
+            return analytics
+            
+        except Exception as e:
+            logger.error(f"Errore nell'analisi card {card_id}:{object_id}: {e}")
+            return None
+    
+    async def get_card_associations(self, card_id: str, object_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Recupera associazioni per una card.
+        
+        Args:
+            card_id: ID della card
+            object_id: ID oggetto HubSpot
+            
+        Returns:
+            Dict con associazioni
+        """
+        try:
+            logger.info(f"Recupero associazioni card {card_id} per oggetto {object_id}")
+            
+            # Recupera configurazione card
+            config = await self.get_card_config(card_id)
+            if not config:
+                logger.error(f"Configurazione card non trovata: {card_id}")
+                return None
+            
+            # Recupera associazioni
+            associations = await self._fetch_associations(config, object_id)
+            
+            return {
+                "card_id": card_id,
+                "object_id": object_id,
+                "object_type": config.hubspot_object_type,
+                "associations": associations,
+                "retrieved_at": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Errore nel recupero associazioni {card_id}:{object_id}: {e}")
+            return None
+    
+    async def get_card_timeline(self, card_id: str, object_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Recupera timeline per una card.
+        
+        Args:
+            card_id: ID della card
+            object_id: ID oggetto HubSpot
+            
+        Returns:
+            Dict con timeline eventi
+        """
+        try:
+            logger.info(f"Recupero timeline card {card_id} per oggetto {object_id}")
+            
+            # Recupera configurazione card
+            config = await self.get_card_config(card_id)
+            if not config:
+                logger.error(f"Configurazione card non trovata: {card_id}")
+                return None
+            
+            # Recupera timeline
+            timeline = await self._fetch_timeline(config, object_id)
+            
+            return {
+                "card_id": card_id,
+                "object_id": object_id,
+                "object_type": config.hubspot_object_type,
+                "timeline": timeline,
+                "retrieved_at": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Errore nel recupero timeline {card_id}:{object_id}: {e}")
+            return None
+    
+    async def _fetch_associations(self, config: ExternalCardConfig, object_id: str) -> Dict[str, Any]:
+        """
+        Recupera associazioni da HubSpot.
+        
+        Args:
+            config: Configurazione card
+            object_id: ID oggetto
+            
+        Returns:
+            Dict con associazioni
+        """
+        try:
+            if not self.hubspot:
+                logger.warning("Client HubSpot non configurato")
+                return {}
+            
+            associations = {}
+            
+            if config.hubspot_object_type == "deals":
+                # Per i deal, recupera contatti e aziende
+                deal_assocs = await self.hubspot.get_deal_associations(object_id)
+                associations = deal_assocs
+            elif config.hubspot_object_type == "contacts":
+                # Per i contatti, recupera deal e aziende
+                contact_assocs = await self.hubspot.get_associations("contacts", object_id, "deals")
+                associations["deals"] = contact_assocs
+                
+                company_assocs = await self.hubspot.get_associations("contacts", object_id, "companies")
+                associations["companies"] = company_assocs
+            elif config.hubspot_object_type == "companies":
+                # Per le aziende, recupera deal e contatti
+                deal_assocs = await self.hubspot.get_associations("companies", object_id, "deals")
+                associations["deals"] = deal_assocs
+                
+                contact_assocs = await self.hubspot.get_associations("companies", object_id, "contacts")
+                associations["contacts"] = contact_assocs
+            
+            return associations
+            
+        except Exception as e:
+            logger.error(f"Errore nel recupero associazioni: {e}")
+            return {}
+    
+    async def _fetch_timeline(self, config: ExternalCardConfig, object_id: str) -> List[Dict[str, Any]]:
+        """
+        Recupera timeline da HubSpot.
+        
+        Args:
+            config: Configurazione card
+            object_id: ID oggetto
+            
+        Returns:
+            Lista di eventi timeline
+        """
+        try:
+            if not self.hubspot:
+                logger.warning("Client HubSpot non configurato")
+                return []
+            
+            timeline = []
+            
+            if config.hubspot_object_type == "deals":
+                # Per i deal, usa get_deal_timeline
+                timeline = await self.hubspot.get_deal_timeline(object_id)
+            else:
+                # Per altri tipi, usa get_timeline_events
+                timeline = await self.hubspot.get_timeline_events(
+                    config.hubspot_object_type, 
+                    object_id
+                )
+            
+            return timeline
+            
+        except Exception as e:
+            logger.error(f"Errore nel recupero timeline: {e}")
+            return []
+    
+    async def _analyze_deal(self, deal_id: str, deal_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analizza un deal per Process Mining.
+        
+        Args:
+            deal_id: ID del deal
+            deal_data: Dati del deal
+            
+        Returns:
+            Dict con analisi
+        """
+        try:
+            # Recupera timeline per analisi
+            timeline = await self.hubspot.get_deal_timeline(deal_id) if self.hubspot else []
+            
+            # Calcola metriche base
+            properties = deal_data.get("properties", {})
+            
+            analysis = {
+                "deal_id": deal_id,
+                "deal_name": properties.get("dealname", "Unknown"),
+                "amount": properties.get("amount", 0),
+                "stage": properties.get("dealstage", "Unknown"),
+                "pipeline": properties.get("pipeline", "Unknown"),
+                "created_at": properties.get("createdate"),
+                "closed_at": properties.get("closedate"),
+                "owner": properties.get("hubspot_owner_id"),
+                "timeline_events_count": len(timeline),
+                "last_activity": self._get_last_activity_date(timeline),
+                "stage_duration_days": self._calculate_stage_duration(timeline),
+                "engagement_score": self._calculate_engagement_score(timeline)
+            }
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Errore nell'analisi deal {deal_id}: {e}")
+            return {"error": str(e)}
+    
+    async def _analyze_contact(self, contact_id: str, contact_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analizza un contatto.
+        
+        Args:
+            contact_id: ID del contatto
+            contact_data: Dati del contatto
+            
+        Returns:
+            Dict con analisi
+        """
+        try:
+            properties = contact_data.get("properties", {})
+            
+            analysis = {
+                "contact_id": contact_id,
+                "name": f"{properties.get('firstname', '')} {properties.get('lastname', '')}".strip(),
+                "email": properties.get("email"),
+                "company": properties.get("company"),
+                "created_at": properties.get("createdate"),
+                "last_activity": properties.get("lastmodifieddate"),
+                "lifecycle_stage": properties.get("lifecyclestage"),
+                "lead_status": properties.get("hs_lead_status")
+            }
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Errore nell'analisi contatto {contact_id}: {e}")
+            return {"error": str(e)}
+    
+    async def _analyze_company(self, company_id: str, company_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analizza un'azienda.
+        
+        Args:
+            company_id: ID dell'azienda
+            company_data: Dati dell'azienda
+            
+        Returns:
+            Dict con analisi
+        """
+        try:
+            properties = company_data.get("properties", {})
+            
+            analysis = {
+                "company_id": company_id,
+                "name": properties.get("name", "Unknown"),
+                "domain": properties.get("domain"),
+                "industry": properties.get("industry"),
+                "created_at": properties.get("createdate"),
+                "last_activity": properties.get("hs_lastmodifieddate"),
+                "city": properties.get("city"),
+                "country": properties.get("country")
+            }
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Errore nell'analisi azienda {company_id}: {e}")
+            return {"error": str(e)}
+    
+    def _get_last_activity_date(self, timeline: List[Dict]) -> Optional[str]:
+        """Recupera data ultima attività dalla timeline."""
+        if not timeline:
+            return None
+        
+        # Cerca il timestamp più recente
+        latest = None
+        for event in timeline:
+            timestamp = event.get("timestamp") or event.get("createdAt")
+            if timestamp:
+                if latest is None or timestamp > latest:
+                    latest = timestamp
+        
+        return latest
+    
+    def _calculate_stage_duration(self, timeline: List[Dict]) -> Optional[int]:
+        """Calcola durata in giorni nella stage corrente."""
+        # Implementazione base - da estendere con logica specifica
+        return None
+    
+    def _calculate_engagement_score(self, timeline: List[Dict]) -> int:
+        """Calcola score di engagement basato su timeline."""
+        if not timeline:
+            return 0
+        
+        # Calcola score basato su numero di eventi
+        score = min(len(timeline) * 10, 100)
+        return score
+    
     async def _fetch_hubspot_data(self, config: ExternalCardConfig, object_id: str) -> Optional[Dict[str, Any]]:
         """
         Recupera dati reali da HubSpot.

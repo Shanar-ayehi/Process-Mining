@@ -8,8 +8,12 @@ from app.api.routes_process_management import router as process_management_route
 from app.api.routes.auth import router as auth_router
 from app.api.routes_external_cards import router as external_cards_router
 from app.core.logger import get_logger
+from app.core.database import engine, Base
 
 logger = get_logger()
+
+# Importa i modelli per assicurarsi che siano registrati con Base
+from app.models.auth import User, Token, AuthSession
 
 # Creazione app FastAPI
 app = FastAPI(
@@ -17,6 +21,13 @@ app = FastAPI(
     description="API per l'estrazione, trasformazione e analisi dei dati per Process Mining",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Crea le tabelle del database all'avvio dell'applicazione."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("✅ Tabelle database create/verificate con successo")
 
 # Configurazione CORS
 app.add_middleware(
