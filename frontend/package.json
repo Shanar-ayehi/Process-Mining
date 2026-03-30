@@ -9,6 +9,7 @@
     "@mui/icons-material": "^5.14.11",
     "@mui/material": "^5.14.13",
     "@mui/x-charts": "^6.18.1",
+    "@xyflow/react": "^12.10.2",
     "axios": "^1.6.2",
     "chart.js": "^4.4.1",
     "chartjs-adapter-date-fns": "^3.0.0",

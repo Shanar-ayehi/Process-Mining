@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { 
   Box, 
-  Grid, 
+  Grid,
   Card, 
   CardContent, 
   Typography, 
@@ -19,7 +19,6 @@ import {
   TrendingUp as TrendingUpIcon
 } from '@mui/icons-material'
 import axios from 'axios'
-import { useNavigate } from 'react-router-dom'
 
 interface ProcessInfo {
   process_id: string
@@ -41,7 +40,6 @@ const ProcessList: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const navigate = useNavigate()
 
   // URL del backend (da configurare per Vite)
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
@@ -153,7 +151,7 @@ const ProcessList: React.FC = () => {
       {/* Stats Summary */}
       <Box mb={3}>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 4 }}>
+          <Grid item xs={12} sm={4}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -166,7 +164,7 @@ const ProcessList: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
+          <Grid item xs={12} sm={4}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -179,7 +177,7 @@ const ProcessList: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
+          <Grid item xs={12} sm={4}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -198,7 +196,7 @@ const ProcessList: React.FC = () => {
       {/* Process Cards */}
       <Grid container spacing={3}>
         {filteredProcesses.map((process) => (
-          <Grid size={{ xs: 12, md: 6, lg: 4 }} key={process.process_id}>
+          <Grid item xs={12} md={6} lg={4} key={process.process_id}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>
@@ -219,20 +217,20 @@ const ProcessList: React.FC = () => {
 
                 {/* Process Stats */}
                 <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid size={6}>
+                  <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Varianti</Typography>
                     <Typography variant="body1">{process.variants_count}</Typography>
                   </Grid>
-                  <Grid size={6}>
+                  <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Casi</Typography>
                     <Typography variant="body1">{process.cases_count}</Typography>
                   </Grid>
-                  <Grid size={6}>
+                  <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Attività</Typography>
                     <Typography variant="body1">{process.activities_count}</Typography>
                   </Grid>
                   {process.avg_processing_time && (
-                    <Grid size={6}>
+                    <Grid item xs={6}>
                       <Typography variant="caption" color="text.secondary">Tempo Medio</Typography>
                       <Typography variant="body1">{process.avg_processing_time.toFixed(1)} giorni</Typography>
                     </Grid>

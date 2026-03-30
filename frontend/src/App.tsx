@@ -1,57 +1,13 @@
-import React, { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
-import { CssBaseline, Container, Box, AppBar, Toolbar, Typography, Button, Snackbar, Alert } from '@mui/material'
-import { Dashboard as DashboardIcon, Analytics as AnalyticsIcon, Settings as SettingsIcon, Login as LoginIcon, Logout as LogoutIcon } from '@mui/icons-material'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { ReactFlowProvider } from '@xyflow/react'
+import { CssBaseline, Container, Box, AppBar, Toolbar, Typography, Button } from '@mui/material'
+import { Dashboard as DashboardIcon, Analytics as AnalyticsIcon, Settings as SettingsIcon } from '@mui/icons-material'
 
 // Importiamo i componenti delle pagine
 import ProcessList from './components/ProcessList'
 import ProcessDetail from './components/ProcessDetail'
 import ProcessAnalysis from './components/ProcessAnalysis'
 import GlobalAnalysis from './components/GlobalAnalysis'
-
-// Importiamo il servizio auth
-import { useAuth, checkAuthStatus } from './services/auth'
-
-// URL del backend per l'autenticazione OAuth
-const API_URL = import.meta.env.VITE_API_URL
-
-// Componente per proteggere le route
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const status = await checkAuthStatus()
-        setIsAuthenticated(status.authenticated)
-      } catch (error) {
-        console.error('Errore nel controllo autenticazione:', error)
-        setIsAuthenticated(false)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [])
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <Typography>Verifica autenticazione...</Typography>
-      </Box>
-    )
-  }
-
-  if (!isAuthenticated) {
-    // Redirect dinamico alla pagina di login del backend OAuth
-    window.location.href = `${API_URL}/auth/hubspot/login`
-    return null
-  }
-
-  return <>{children}</>
-}
 
 function App() {
   return (
@@ -87,13 +43,15 @@ function App() {
 
         {/* Main Content */}
         <Container maxWidth="xl" className="app-container">
-          <Routes>
-            <Route path="/" element={<ProcessList />} />
-            <Route path="/process/:processId" element={<ProcessDetail />} />
-            <Route path="/analysis/:id" element={<ProcessAnalysis />} />
-            <Route path="/analysis" element={<GlobalAnalysis />} />
-            <Route path="/settings" element={<div>Impostazioni</div>} />
-          </Routes>
+          <ReactFlowProvider>
+            <Routes>
+              <Route path="/" element={<ProcessList />} />
+              <Route path="/process/:processId" element={<ProcessDetail />} />
+              <Route path="/analysis/:id" element={<ProcessAnalysis />} />
+              <Route path="/analysis" element={<GlobalAnalysis />} />
+              <Route path="/settings" element={<div>Impostazioni</div>} />
+            </Routes>
+          </ReactFlowProvider>
         </Container>
       </div>
     </Router>
