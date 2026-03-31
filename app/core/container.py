@@ -248,16 +248,18 @@ def register_mining_services():
     
     logger.info("Servizi Mining registrati")
 
+# TODO: Implementare il modulo app.services.integration per il sync bidirezionale
 def register_integration_services():
     """Registra tutti i servizi Integration."""
-    from app.services.integration.hubspot_sync import hubspot_sync_service
-    from app.services.integration.journey_bridge import journey_bridge_service
+    # from app.services.integration.hubspot_sync import hubspot_sync_service
+    # from app.services.integration.journey_bridge import journey_bridge_service
     
-    # Registra servizi Integration
-    container.register('hubspot_sync', hubspot_sync_service)
-    container.register('journey_bridge', journey_bridge_service)
+    # # Registra servizi Integration
+    # container.register('hubspot_sync', hubspot_sync_service)
+    # container.register('journey_bridge', journey_bridge_service)
     
-    logger.info("Servizi Integration registrati")
+    # logger.info("Servizi Integration registrati")
+    pass
 
 def register_connectors():
     """Registra tutti i connettori."""
@@ -274,7 +276,7 @@ def initialize_container():
         register_core_services()
         register_etl_services()
         register_mining_services()
-        register_integration_services()
+        # register_integration_services()  # TODO: Implementare il modulo app.services.integration per il sync bidirezionale
         register_connectors()
         
         logger.info("Container inizializzato con tutti i servizi")
@@ -335,15 +337,17 @@ def get_kpi():
     """Ottiene il servizio KPI."""
     return container.get('kpi')
 
-@lru_cache()
-def get_hubspot_sync():
-    """Ottiene il servizio sincronizzazione HubSpot."""
-    return container.get('hubspot_sync')
+# TODO: Implementare il modulo app.services.integration per il sync bidirezionale
+# @lru_cache()
+# def get_hubspot_sync():
+#     """Ottiene il servizio sincronizzazione HubSpot."""
+#     return container.get('hubspot_sync')
 
-@lru_cache()
-def get_journey_bridge():
-    """Ottiene il servizio bridge journey."""
-    return container.get('journey_bridge')
+# TODO: Implementare il modulo app.services.integration per il sync bidirezionale
+# @lru_cache()
+# def get_journey_bridge():
+#     """Ottiene il servizio bridge journey."""
+#     return container.get('journey_bridge')
 
 @lru_cache()
 def get_hubspot_mapper():

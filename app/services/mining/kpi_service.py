@@ -1,3 +1,8 @@
+import os
+# Monkey-patch per il bug del PID 0 di pm4py in Docker
+if hasattr(os, 'getppid') and os.getppid() == 0:
+    os.getppid = lambda: os.getpid()
+
 import pm4py
 import polars as pl
 import pandas as pd

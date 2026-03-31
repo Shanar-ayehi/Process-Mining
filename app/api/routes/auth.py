@@ -133,7 +133,7 @@ async def auth_callback(
         logger.info(f"Successfully authenticated user {user_info['user_id']}")
         
         # Redirect al frontend con token
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = settings.frontend_url
         redirect_url = f"{frontend_url}/auth/success?token={jwt_token}"
         
         return RedirectResponse(url=redirect_url)

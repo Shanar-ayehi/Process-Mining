@@ -1,37 +1,34 @@
-version: '3.8'
-
 services:
-  app:
-    build: .
-    volumes:
-      - ./data:/app/data  # <--- MAPS YOUR PC FOLDER TO THE CONTAINER
-      - ./logs:/app/logs  # <--- SAVES LOGS TO YOUR PC
-    environment:
-      - HUBSPOT_API_KEY=${HUBSPOT_API_KEY}
-
   redis:
     image: redis:alpine
     volumes:
-      - redis_data:/data # <--- PERSISTS REDIS QUEUE
+      - redis_data:/data
 
-  # 2. Il Backend API
   backend:
     build: .
     command: uvicorn app.api.main:app --host 0.0.0.0 --reload
-    volumes:
-      - .:/code  # Modifica codice in tempo reale
     ports:
       - "8000:8000"
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - .:/app              # Mappa il codice per il reload in tempo reale
+      - ./data:/app/data    # Salva i dati SQLite e i JSON estratti sul PC
+      - ./logs:/app/logs    # Salva i log sul PC
+    env_file:
+      - .env                # INIETTA LE CREDENZIALI HUBSPOT
+    depends_on:
+      - redis
 
-  # 3. Il Worker Celery (che fa il lavoro sporco)
   worker:
     build: .
     command: celery -A app.tasks.worker.celery_app worker --loglevel=info
     volumes:
-      - .:/code
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      - .:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+    env_file:
+      - .env                # INIETTA LE CREDENZIALI HUBSPOT
     depends_on:
       - redis
+
+volumes:
+  redis_data:
