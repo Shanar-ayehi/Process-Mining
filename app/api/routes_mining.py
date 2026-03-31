@@ -1,11 +1,8 @@
-from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Dict, Any
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
-import json
 
 from app.services.mining.discovery_service import discovery_service
-from app.services.mining.conformance_service import conformance_service
-from app.services.mining.kpi_service import kpi_service
 from app.services.etl.data_discovery import auto_discovery_service
 from app.core.hubspot_config import hubspot_config_manager
 from app.tasks.mining_task import (
@@ -118,7 +115,6 @@ async def get_dfg_with_automations(portal_id: str, include_performance: bool = F
             raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
         
         # Carica workflow più recenti
-        from pathlib import Path
         from app.core.config import settings
         import json
         import glob

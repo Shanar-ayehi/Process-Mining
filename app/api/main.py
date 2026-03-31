@@ -13,7 +13,6 @@ from app.core.database import engine, Base
 logger = get_logger()
 
 # Importa i modelli per assicurarsi che siano registrati con Base
-from app.models.auth import User, Token, AuthSession
 
 # Creazione app FastAPI
 app = FastAPI(

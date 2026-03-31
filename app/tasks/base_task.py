@@ -1,9 +1,8 @@
-from typing import Dict, Any, Optional, Union, List
+from typing import Dict, Any, Optional, List
 from celery import Celery
 from celery.app.task import Task
 from celery.exceptions import Retry
 from datetime import datetime
-import logging
 from app.core.logger import get_logger
 from app.core.config import settings
 

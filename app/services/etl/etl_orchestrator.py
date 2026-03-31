@@ -5,18 +5,11 @@ Questo modulo unifica tutti i servizi ETL in un'unica interfaccia coordinata,
 implementando l'architettura plastica e l'auto-adattività.
 """
 
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 import polars as pl
 from datetime import datetime
-from pathlib import Path
 from app.core.logger import get_logger
-from app.core.config import settings
 from app.core.container import get_container
-from app.services.etl.data_extraction import DataExtractionService
-from app.services.etl.data_transformation import DataTransformationService
-from app.services.etl.data_quality import DataQualityService
-from app.services.etl.privacy_governance import PrivacyGovernanceService
-from app.connectors.hubspot_client import HubSpotClient
 
 logger = get_logger()
 

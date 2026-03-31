@@ -6,13 +6,12 @@ compreso il flusso di autorizzazione, gestione token e refresh.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Request, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta
 import httpx
-import logging
 import os
 from urllib.parse import urlencode
 
@@ -20,7 +19,7 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.core.security import create_access_token
-from app.models.auth import Token, User
+from app.models.auth import Token
 from app.schemas.auth import AuthResponse, TokenRefreshRequest
 
 logger = get_logger()

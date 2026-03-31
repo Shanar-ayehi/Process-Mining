@@ -1,9 +1,6 @@
-from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
-from app.services.etl.data_quality import data_quality_service
-from app.services.etl.privacy_governance import privacy_governance_service
 from app.tasks.dq_task import (
     validate_event_log_schema_task, validate_data_completeness_task,
     validate_data_consistency_task, generate_data_quality_report_task,

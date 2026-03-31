@@ -1,11 +1,9 @@
-from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Dict, List, Any
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
-from app.services.etl.data_extraction import data_extraction_service
 from app.services.etl.data_transformation import data_transformation_service
 from app.tasks.etl_task import (
-    extract_deals_task, transform_deals_task, merge_sources_task,
     run_full_etl_pipeline, schedule_periodic_extraction,
     cleanup_old_data_task, extract_contacts_task, extract_companies_task,
     extract_workflows_task

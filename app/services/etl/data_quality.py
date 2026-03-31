@@ -1,7 +1,6 @@
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any
 import polars as pl
 from pandera import DataFrameSchema, Column, Check
-from pandera.typing import Series
 from datetime import datetime
 from app.core.logger import get_logger
 from app.core.config import settings
@@ -346,7 +345,6 @@ class DataQualityService:
     def _save_validation_report(self, report: Dict[str, Any], report_type: str) -> None:
         """Salva il report di validazione."""
         import json
-        from pathlib import Path
         
         # Crea directory se non esiste
         self.logs_dir.mkdir(parents=True, exist_ok=True)

@@ -6,10 +6,8 @@ e il funzionamento delle card esterne.
 """
 
 import pytest
-import asyncio
 from datetime import datetime
-from typing import Dict, Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from app.services.external_cards_service import (
     ExternalCardService,

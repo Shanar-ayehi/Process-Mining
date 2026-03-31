@@ -7,7 +7,7 @@ Questo modulo fornisce funzionalità per:
 - Autenticazione e autorizzazione
 """
 
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext

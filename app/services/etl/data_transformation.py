@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 import polars as pl
 from datetime import datetime
 from app.core.logger import get_logger
@@ -242,7 +242,6 @@ class DataTransformationService:
     
     def _save_processed_data(self, df: pl.DataFrame, filename_prefix: str) -> None:
         """Salva i dati processati in formato Parquet."""
-        import os
         
         # Crea la directory se non esiste
         self.processed_dir.mkdir(parents=True, exist_ok=True)

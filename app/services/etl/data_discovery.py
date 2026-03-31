@@ -1,9 +1,8 @@
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 from pathlib import Path
-import json
 import yaml
 from app.core.logger import get_logger
-from app.core.hubspot_config import HubSpotConfigManager, StageMapping, DataStructureConfig
+from app.core.hubspot_config import HubSpotConfigManager
 from app.connectors.hubspot_client import HubSpotClient, HubSpotAPIError
 
 logger = get_logger()

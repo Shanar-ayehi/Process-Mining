@@ -7,15 +7,13 @@ e supporta tutte le operazioni necessarie per il Process Mining.
 
 import httpx
 import asyncio
-from typing import Dict, List, Optional, AsyncGenerator, Union
+from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import logging
 
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from app.core.database import get_db
 from app.core.logger import get_logger
 from app.core.config import settings
 from app.models.auth import Token

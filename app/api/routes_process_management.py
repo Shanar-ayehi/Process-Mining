@@ -13,7 +13,6 @@ from pydantic import BaseModel
 from datetime import datetime
 import asyncio
 import json
-from pathlib import Path
 
 from app.core.logger import get_logger
 from app.core.config import settings
@@ -24,7 +23,6 @@ from app.services.etl.data_extraction import data_extraction_service
 from app.services.etl.data_transformation import data_transformation_service
 from app.services.etl.data_quality import data_quality_service
 from app.services.data_service import data_repository
-from app.core.bootstrap import bootstrap_manager
 
 logger = get_logger()
 router = APIRouter()

@@ -6,16 +6,14 @@ permettendo di creare, recuperare, sincronizzare ed eliminare card.
 """
 
 from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from datetime import datetime
 
 from app.services.external_cards_service import (
     external_card_service,
     ExternalCardConfig,
-    ExternalCardData,
-    CardType,
-    SyncStatus
+    CardType
 )
 from app.core.logger import get_logger
 

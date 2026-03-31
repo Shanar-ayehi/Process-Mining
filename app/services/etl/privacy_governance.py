@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from pathlib import Path
 import json

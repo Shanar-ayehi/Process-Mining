@@ -30,7 +30,6 @@ celery_app.conf.update(
 )
 
 # Importa tutti i task per registrazione
-from app.tasks import etl_task, mining_task, dq_task, integration_task
 
 if __name__ == '__main__':
     celery_app.start()

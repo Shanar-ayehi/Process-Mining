@@ -2,13 +2,10 @@ from typing import List, Dict, Optional, Union, Any
 from pathlib import Path
 import json
 import asyncio
-import aiohttp
 from app.core.logger import get_logger
 from app.core.config import settings
 from app.connectors.hubspot_client import HubSpotClient, HubSpotAPIError, create_hubspot_client
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.connectors.hubspot_mapper import hubspot_mapper
-from app.core.privacy import privacy_manager
 from app.core.hubspot_config import hubspot_config_manager
 
 logger = get_logger()

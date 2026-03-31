@@ -7,18 +7,14 @@ Questo modulo si occupa di:
 - Validazione dell'ambiente
 """
 
-import os
-import sys
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any
 import asyncio
 import json
-import yaml
 from datetime import datetime
 
 from app.core.logger import get_logger
 from app.core.config import settings
-from app.core.hubspot_config import HubSpotConfigManager, StageMapping, DataStructureConfig
+from app.core.hubspot_config import HubSpotConfigManager
 from app.connectors.hubspot_client import HubSpotClient, HubSpotAPIError
 from app.connectors.hubspot_mapper import HubSpotMapper
 from app.core.database import get_db_connection

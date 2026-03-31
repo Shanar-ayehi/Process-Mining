@@ -1,8 +1,7 @@
-from typing import Dict, List, Any, Optional, Union
-from celery import chain, group
+from typing import Dict, List, Any, Optional
 from app.tasks.base_task import (
-    celery_app, integration_task, create_task_metadata, create_task_result, 
-    validate_task_input, handle_task_error
+    integration_task, create_task_metadata, create_task_result, 
+    handle_task_error
 )
 from app.services.integration.hubspot_sync import hubspot_sync_service
 from app.services.integration.journey_bridge import journey_bridge_service

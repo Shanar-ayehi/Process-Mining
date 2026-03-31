@@ -1,9 +1,9 @@
-from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Dict, List, Any
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
+import polars as pl
 
 from app.services.analytics.feature_engineering import feature_engineering_service
-from app.services.analytics.predictive_models import predictive_models_service
 from app.tasks.analytics_task import (
     run_simulation_task, compare_scenarios_task
 )
@@ -27,7 +27,7 @@ async def run_feature_engineering(request: FeatureEngineeringRequestSchema):
     try:
         logger.info(f"Richiesta feature engineering: portal_id={request.portal_id}, {len(request.feature_types)} tipi di feature")
         
-        task = run_feature_engineering_task.delay(
+        task = run_feature_engineering.delay(
             portal_id=request.portal_id,
             feature_types=request.feature_types,
             include_advanced_features=request.include_advanced_features,
@@ -105,7 +105,7 @@ async def train_predictive_models(request: ModelTrainingRequestSchema):
     try:
         logger.info(f"Richiesta training modelli: portal_id={request.portal_id}, {len(request.model_types)} tipi di modello")
         
-        task = train_predictive_models_task.delay(
+        task = train_predictive_models.delay(
             portal_id=request.portal_id,
             target_variable=request.target_variable,
             model_types=request.model_types,
@@ -229,7 +229,7 @@ async def generate_analytics_report(request: AnalyticsReportRequestSchema):
     try:
         logger.info(f"Richiesta generazione report analytics: {request.report_type}")
         
-        task = generate_analytics_report_task.delay(
+        task = generate_analytics_report.delay(
             report_type=request.report_type,
             include_visualizations=request.include_visualizations,
             time_range=request.time_range
@@ -406,7 +406,7 @@ async def export_analytics_results(request: AnalyticsReportRequestSchema):
     try:
         logger.info(f"Richiesta esportazione risultati analytics: {request.report_type}")
         
-        task = export_analytics_results_task.delay(
+        task = export_analytics_results.delay(
             report_type=request.report_type,
             include_visualizations=request.include_visualizations,
             time_range=request.time_range

@@ -7,12 +7,10 @@ dagli event log per modelli predittivi.
 
 import polars as pl
 import numpy as np
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from typing import Dict, Any
 from collections import Counter
 
 from app.core.logger import get_logger
-from app.core.config import settings
 
 logger = get_logger()
 

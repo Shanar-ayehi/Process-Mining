@@ -5,7 +5,7 @@ Questo modulo fornisce un container per la gestione centralizzata delle dipenden
 implementando il pattern Singleton e Dependency Injection per tutti i servizi.
 """
 
-from typing import Dict, Any, Optional, Type, TypeVar
+from typing import Dict, Any, TypeVar
 from functools import lru_cache
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -210,8 +210,6 @@ def get_service_registry() -> ServiceRegistry:
 # Funzioni di utilità per la registrazione dei servizi
 def register_core_services():
     """Registra tutti i servizi core."""
-    from app.core.config import settings
-    from app.core.database import get_db
     from app.core.logger import get_logger
     from app.core.security import security_instance
     
@@ -263,7 +261,6 @@ def register_integration_services():
 
 def register_connectors():
     """Registra tutti i connettori."""
-    from app.connectors.hubspot_client import HubSpotClient
     from app.connectors.hubspot_mapper import hubspot_mapper
     
     # Registra connettori

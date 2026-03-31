@@ -6,13 +6,11 @@ funzionalità di testing e validazione dell'integrazione.
 
 import asyncio
 import time
-from typing import Dict, List, Any, Optional, Union
-from datetime import datetime, timedelta
+from typing import Dict, Any
+from datetime import datetime
 from pathlib import Path
 import json
-import threading
-import logging
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
 
 from app.core.logger import get_logger
@@ -552,7 +550,6 @@ class IntegrationManager:
             # Test reactive ETL (now using Celery)
             try:
                 # Verifica che il task Celery per il monitoraggio sia disponibile
-                from celery.result import AsyncResult
                 
                 # Testa che il task sia importabile e eseguibile
                 task_result = monitor_new_files_task.delay(raw_data_dir=None, lookback_minutes=1)

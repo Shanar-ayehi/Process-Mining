@@ -1,13 +1,14 @@
 from typing import Dict, List, Any, Optional
+from datetime import datetime
+import polars as pl
 from app.tasks.base_task import (
     celery_app, BaseTask, create_task_metadata, create_task_result,
-    validate_task_input, handle_task_error
+    handle_task_error
 )
 from app.services.analytics.simulation_service import simulation_service
 from app.services.mining.discovery_service import discovery_service
 from app.core.logger import get_logger
 from app.core.database import load_event_log
-import asyncio
 
 logger = get_logger()
 

@@ -12,10 +12,9 @@ import numpy as np
 import pickle
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
-from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 import warnings
 warnings.filterwarnings('ignore')

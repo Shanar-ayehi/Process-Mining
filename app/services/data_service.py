@@ -7,17 +7,13 @@ standardizzate per tutte le API.
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
-from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+from datetime import datetime
 import polars as pl
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
 
 from app.core.logger import get_logger
-from app.core.database import get_db_connection, save_event_log, load_event_log, Base
+from app.core.database import save_event_log, load_event_log
 from app.core.config import settings
-from app.models.auth import Token
 
 logger = get_logger()
 

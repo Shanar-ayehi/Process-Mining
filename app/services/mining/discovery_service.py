@@ -1,8 +1,7 @@
 import pm4py
 import polars as pl
 import pandas as pd
-from typing import Dict, List, Any, Optional, Tuple, Union
-from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 from app.core.logger import get_logger
 from app.core.config import settings

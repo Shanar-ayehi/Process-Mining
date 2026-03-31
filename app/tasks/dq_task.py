@@ -1,8 +1,7 @@
 from typing import Dict, List, Any, Optional
-from celery import chain, group
 from app.tasks.base_task import (
-    celery_app, dq_task, create_task_metadata, create_task_result, 
-    validate_task_input, handle_task_error
+    dq_task, create_task_metadata, create_task_result, 
+    handle_task_error
 )
 from app.services.etl.data_quality import data_quality_service
 from app.services.etl.privacy_governance import privacy_governance_service

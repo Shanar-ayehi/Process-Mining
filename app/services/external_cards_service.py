@@ -6,7 +6,7 @@ card esterne che mostrano dati Process Mining direttamente nell'interfaccia HubS
 """
 
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 import json
 import hashlib
@@ -14,7 +14,6 @@ import hashlib
 from pydantic import BaseModel, Field, validator
 
 from app.core.logger import get_logger
-from app.core.config import settings
 from app.connectors.hubspot_client import HubSpotClient
 from app.services.data_service import data_repository
 

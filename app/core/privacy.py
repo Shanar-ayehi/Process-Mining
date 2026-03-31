@@ -107,7 +107,6 @@ class PrivacyManager:
         Returns:
             Statistiche sull'operazione
         """
-        import os
         from datetime import datetime, timedelta
         
         if retention_days is None:

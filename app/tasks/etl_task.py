@@ -1,8 +1,8 @@
 from typing import Dict, List, Any, Optional
 from celery import chain, group
 from app.tasks.base_task import (
-    celery_app, etl_task, create_task_metadata, create_task_result, 
-    validate_task_input, handle_task_error
+    etl_task, create_task_metadata, create_task_result, 
+    handle_task_error
 )
 from app.services.etl.data_extraction import data_extraction_service
 from app.services.etl.data_transformation import data_transformation_service
@@ -323,7 +323,7 @@ def schedule_periodic_extraction(self, interval_hours: int = 24) -> Dict[str, An
         
         result = create_task_metadata('schedule_periodic_extraction', **schedule_data)
         
-        logger.info(f"Pianificazione estrazione periodica completata")
+        logger.info("Pianificazione estrazione periodica completata")
         return create_task_result(success=True, data=result)
         
     except Exception as e:
