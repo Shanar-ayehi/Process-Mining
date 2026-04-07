@@ -18,7 +18,7 @@ from urllib.parse import urlencode
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.logger import get_logger
-from app.core.security import create_access_token
+from app.core.security import create_access_token, verify_token
 from app.models.auth import Token
 from app.schemas.auth import AuthResponse, TokenRefreshRequest
 
@@ -199,13 +199,26 @@ async def auth_status(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Verifica lo stato dell'autenticazione.
+    Verifica lo stato dell'autenticazione verificando il token JWT dal frontend.
     
     Returns:
         dict: Stato autenticazione e informazioni utente
     """
     try:
-        # Controlla se esiste un token valido
+        # Verifica token JWT dall'header Authorization
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            logger.warning("Nessun header Authorization valido trovato")
+            return {
+                "authenticated": False,
+                "message": "Token di autenticazione mancante"
+            }
+        
+        # Estrai e verifica il token JWT
+        token = auth_header.replace("Bearer ", "")
+        payload = verify_token(token, "access_token")
+        
+        # Token JWT valido, recupera info utente dal DB
         result = await db.execute(
             select(Token).where(Token.expires_at > datetime.utcnow())
         )
@@ -214,11 +227,13 @@ async def auth_status(
         if not token_record:
             return {
                 "authenticated": False,
-                "message": "Nessun token valido trovato"
+                "message": "Nessun token HubSpot valido trovato nel database"
             }
         
-        # Ottieni informazioni utente
+        # Ottieni informazioni utente da HubSpot
         user_info = await get_hubspot_user_info(token_record.access_token)
+        
+        logger.info(f"Autenticazione verificata con successo per utente: {payload.get('sub')}")
         
         return {
             "authenticated": True,
@@ -231,6 +246,12 @@ async def auth_status(
             "token_expires_at": token_record.expires_at.isoformat()
         }
         
+    except HTTPException as e:
+        logger.warning(f"Verifica token JWT fallita: {e.detail}")
+        return {
+            "authenticated": False,
+            "message": e.detail
+        }
     except Exception as e:
         logger.error(f"Auth status check failed: {str(e)}")
         return {

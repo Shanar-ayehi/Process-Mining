@@ -207,25 +207,29 @@ async def run_full_pipeline(request: PipelineRequestSchema):
     Esegue pipeline ETL completa.
     """
     try:
-        logger.info("Richiesta pipeline ETL completa")
+        logger.info(f"Tentativo di invio task a Celery per portal_id: {request.portal_id}")
         
         task = run_full_etl_pipeline.delay(
+            portal_id=request.portal_id,
             properties_with_history=request.properties_with_history,
             include_contacts=request.include_contacts,
             include_companies=request.include_companies
         )
         
+        logger.info(f"Task inviato con successo a Celery con ID: {task.id}")
+        
         return {
             "task_id": task.id,
             "status": "started",
+            "portal_id": request.portal_id,
             "include_contacts": request.include_contacts,
             "include_companies": request.include_companies,
             "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:
-        logger.error(f"Errore pipeline ETL completa: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("CRITICAL: Fallimento nell'invio del task a Celery!")
+        raise HTTPException(status_code=500, detail=f"Errore di invio a Celery: {str(e)}")
 
 @router.post("/pipeline/schedule")
 async def schedule_extraction(request: ScheduleRequestSchema):

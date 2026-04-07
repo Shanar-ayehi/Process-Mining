@@ -317,101 +317,103 @@ async def get_process_variants(process_id: str):
 
 async def _discover_processes() -> List[Dict[str, Any]]:
     """
-    Scopre automaticamente i processi disponibili.
+    Scopre automaticamente i processi disponibili leggendo i file reali da data/processed/.
     
     Returns:
         Lista di processi scoperti
     """
+    import polars as pl
+    from pathlib import Path
+    
     try:
         processes = []
+        processed_dir = settings.processed_data_dir
         
-        # 1. Controlla i dati HubSpot disponibili
-        if settings.hubspot_api_key:
+        if not processed_dir.exists():
+            logger.warning("Directory data/processed/ non trovata")
+            return []
+        
+        # Cerca file Parquet e JSON nella directory processed
+        parquet_files = list(processed_dir.glob("*.parquet"))
+        json_files = list(processed_dir.glob("*.json"))
+        
+        all_files = parquet_files + json_files
+        
+        if not all_files:
+            logger.info("Nessun file trovato in data/processed/")
+            return []
+        
+        for file_path in all_files:
             try:
-                deals_data = await data_extraction_service.extract_all_deals_with_history()
-                if deals_data:
-                    processes.append({
-                        "process_id": "hubspot_sales_pipeline",
-                        "name": "Sales Pipeline HubSpot",
-                        "description": "Processo di vendita basato sui deal HubSpot",
-                        "status": "active",
-                        "created_at": datetime.now().isoformat(),
-                        "variants_count": 8,
-                        "cases_count": len(deals_data),
-                        "activities_count": 12,
-                        "avg_processing_time": 28.5,
-                        "quality_score": 0.92
-                    })
-            except Exception as e:
-                logger.warning(f"Errore scoperta processi HubSpot: {e}")
-        
-        # 2. Controlla i file di dati locali
-        raw_dir = settings.raw_data_dir
-        if raw_dir.exists():
-            raw_files = list(raw_dir.glob("*.json"))
-            if raw_files:
-                processes.append({
-                    "process_id": "local_data_processing",
-                    "name": "Local Data Processing",
-                    "description": "Processo basato su dati locali",
+                # Genera process_id dal nome del file
+                process_id = file_path.stem.replace(" ", "_").lower()
+                file_name = file_path.name
+                
+                # Carica il file per ottenere statistiche
+                if file_path.suffix == '.parquet':
+                    df = pl.read_parquet(file_path)
+                elif file_path.suffix == '.json':
+                    df = pl.read_json(file_path)
+                else:
+                    continue
+                
+                # Calcola statistiche dal DataFrame
+                row_count = len(df)
+                
+                # Determina il nome leggibile dal file
+                if "deal" in file_name.lower():
+                    display_name = "HubSpot Deals Pipeline"
+                    description = "Processo di vendita basato sui deal HubSpot estratti"
+                elif "contact" in file_name.lower():
+                    display_name = "HubSpot Contacts"
+                    description = "Processo basato sui contatti HubSpot estratti"
+                elif "company" in file_name.lower():
+                    display_name = "HubSpot Companies"
+                    description = "Processo basato sulle aziende HubSpot estratte"
+                elif "event_log" in file_name.lower():
+                    display_name = "Event Log Process"
+                    description = "Event log trasformato per process mining"
+                else:
+                    display_name = file_path.stem.replace("_", " ").title()
+                    description = f"Processo estratto da {file_name}"
+                
+                # Conta colonne per stimare attività
+                activities_count = len(df.columns) if df.columns else 1
+                
+                # Calcola qualità basata su completezza dati
+                null_count = df.null_count().sum_horizontal()[0] if hasattr(df, 'null_count') else 0
+                total_cells = row_count * len(df.columns) if df.columns else 1
+                quality_score = 1.0 - (null_count / total_cells) if total_cells > 0 else 0.8
+                
+                # Variants stimati (sempplificato)
+                variants_count = min(row_count // 10, 10) if row_count > 10 else 1
+                
+                process_info = {
+                    "process_id": process_id,
+                    "name": display_name,
+                    "description": description,
                     "status": "active",
-                    "created_at": datetime.now().isoformat(),
-                    "variants_count": 5,
-                    "cases_count": len(raw_files) * 10,  # Stimato
-                    "activities_count": 8,
-                    "avg_processing_time": 15.2,
-                    "quality_score": 0.88
-                })
-        
-        # 3. Processi di esempio se non ci sono dati reali
-        if not processes:
-            processes.extend([
-                {
-                    "process_id": "example_sales_pipeline",
-                    "name": "Sales Pipeline Esempio",
-                    "description": "Processo di vendita di esempio",
-                    "status": "active",
-                    "created_at": datetime.now().isoformat(),
-                    "variants_count": 6,
-                    "cases_count": 150,
-                    "activities_count": 10,
-                    "avg_processing_time": 25.0,
-                    "quality_score": 0.90
-                },
-                {
-                    "process_id": "example_customer_onboarding",
-                    "name": "Customer Onboarding",
-                    "description": "Processo di onboarding clienti",
-                    "status": "active",
-                    "created_at": datetime.now().isoformat(),
-                    "variants_count": 4,
-                    "cases_count": 89,
-                    "activities_count": 7,
-                    "avg_processing_time": 12.5,
-                    "quality_score": 0.85
+                    "created_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+                    "variants_count": variants_count,
+                    "cases_count": row_count,
+                    "activities_count": activities_count,
+                    "avg_processing_time": round(25.0 + (row_count / 100), 1),
+                    "quality_score": round(quality_score, 2)
                 }
-            ])
+                
+                processes.append(process_info)
+                logger.info(f"Processo scoperto: {process_id} ({row_count} righe)")
+                
+            except Exception as e:
+                logger.warning(f"Errore lettura file {file_path}: {e}")
+                continue
         
         logger.info(f"Processi scoperti: {len(processes)}")
         return processes
         
     except Exception as e:
         logger.error(f"Errore nella scoperta processi: {e}")
-        # Ritorna processi di esempio in caso di errore
-        return [
-            {
-                "process_id": "error_fallback",
-                "name": "Processo di Esempio",
-                "description": "Processo di fallback in caso di errore",
-                "status": "active",
-                "created_at": datetime.now().isoformat(),
-                "variants_count": 3,
-                "cases_count": 50,
-                "activities_count": 5,
-                "avg_processing_time": 10.0,
-                "quality_score": 0.80
-            }
-        ]
+        return []
 
 async def _discover_process_variants(process_id: str) -> List[Dict[str, Any]]:
     """

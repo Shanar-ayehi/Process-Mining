@@ -109,7 +109,7 @@ async def get_dfg_with_automations(portal_id: str, include_performance: bool = F
         # Carica event log
         from app.core.database import load_event_log
         table_name = f"event_log_{portal_id}"
-        event_log_df = load_event_log(table_name=table_name)
+        event_log_df = load_event_log(portal_id=portal_id, table_name=table_name)
         
         if event_log_df.is_empty():
             raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")

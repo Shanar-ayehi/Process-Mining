@@ -37,7 +37,7 @@ class DataRepository:
         """
         try:
             logger.info("Recupero event log più recente dal database")
-            df = load_event_log("event_log")
+            df = load_event_log(portal_id="default", table_name="event_log")
             
             if df.is_empty():
                 logger.warning("Nessun event log trovato nel database")
@@ -432,7 +432,7 @@ class DataRepository:
             
             # Controlla event log nel database
             try:
-                df = load_event_log("event_log")
+                df = load_event_log(portal_id="default", table_name="event_log")
                 status["data_availability"]["database_event_log"] = not df.is_empty()
                 status["record_counts"] = {"event_log": len(df) if not df.is_empty() else 0}
             except Exception:

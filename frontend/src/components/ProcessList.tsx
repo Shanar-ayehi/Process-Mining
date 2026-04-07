@@ -16,7 +16,8 @@ import {
   PlayArrow as PlayArrowIcon, 
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  Sync as SyncIcon
 } from '@mui/icons-material'
 import axios from 'axios'
 
@@ -34,12 +35,33 @@ interface ProcessInfo {
   quality_score?: number
 }
 
+// Funzione per estrarre il portal_id dal token JWT
+const getPortalIdFromToken = (): string => {
+  const token = localStorage.getItem('token');
+  if (!token) return 'default';
+  
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => 
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+    
+    const decoded = JSON.parse(jsonPayload);
+    return decoded.hubspot_portal_id ? String(decoded.hubspot_portal_id) : 'default';
+  } catch (e) {
+    console.error("Errore decodifica token", e);
+    return 'default';
+  }
+};
+
 const ProcessList: React.FC = () => {
   const [processes, setProcesses] = useState<ProcessInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   // URL del backend (da configurare per Vite)
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
@@ -67,6 +89,31 @@ const ProcessList: React.FC = () => {
   const handleRefresh = () => {
     setRefreshing(true)
     fetchProcesses()
+  }
+
+  const handleSyncHubSpot = async () => {
+    try {
+      setSyncing(true)
+      setError(null)
+      
+      const portalId = getPortalIdFromToken();
+      console.log(`Avvio estrazione per il portale: ${portalId}`);
+      
+      const response = await axios.post(`${API_BASE_URL}/connector/pipeline/full`, {
+        portal_id: portalId,
+        properties_with_history: ['dealstage'],
+        include_contacts: true,
+        include_companies: true
+      })
+      
+      alert(`Estrazione avviata in background!\nTask ID: ${response.data.task_id}\nPortale: ${portalId}\n\nI dati saranno disponibili nella lista processi al completamento.`)
+    } catch (err: any) {
+      console.error('Errore sincronizzazione HubSpot:', err)
+      console.error('Dettagli errore:', err.response?.data)
+      setError(err.response?.data?.detail || err.message || 'Errore durante la sincronizzazione HubSpot')
+    } finally {
+      setSyncing(false)
+    }
   }
 
   const handleAnalyzeProcess = (processId: string) => {
@@ -113,6 +160,15 @@ const ProcessList: React.FC = () => {
         </Box>
         
         <Box display="flex" gap={2}>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<SyncIcon />}
+            onClick={handleSyncHubSpot}
+            disabled={syncing}
+          >
+            {syncing ? 'Sincronizzazione...' : 'Sincronizza HubSpot'}
+          </Button>
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}

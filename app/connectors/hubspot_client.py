@@ -10,7 +10,7 @@ import asyncio
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, desc
 
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
@@ -58,11 +58,14 @@ class HubSpotClient:
         Returns:
             bool: True se token valido, False altrimenti
         """
-        # Ottieni token dal database
+        # TODO: Refactor per passare portal_id al client e filtrare in query per supportare il multi-tenant
+        # Ottieni token dal database (prende l'ultimo aggiornato)
         result = await self.db.execute(
-            select(Token).where(Token.is_active == True)
+            select(Token)
+            .where(Token.is_active == True)
+            .order_by(desc(Token.updated_at))
         )
-        token_record = result.scalar_one_or_none()
+        token_record = result.scalars().first()
         
         if not token_record:
             logger.error("Nessun token valido trovato nel database")
@@ -235,15 +238,21 @@ class HubSpotClient:
         after = None
         
         while True:
-            response = await self._make_request(
-                "GET", "/crm/v3/objects/deals", 
-                params={
-                    "limit": 100, 
-                    "after": after,
-                    "properties": ",".join(properties) if properties else None,
-                    "archived": "false"
-                }
-            )
+            # Costruisci params base
+            params = {
+                "limit": 100,
+                "archived": "false"
+            }
+            
+            # Aggiungi 'after' solo se ha un valore reale
+            if after:
+                params["after"] = after
+            
+            # Aggiungi 'properties' solo se presenti
+            if properties:
+                params["properties"] = ",".join(properties)
+            
+            response = await self._make_request("GET", "/crm/v3/objects/deals", params=params)
             
             deals = response.get("results", [])
             if not deals:
@@ -271,12 +280,17 @@ class HubSpotClient:
         Returns:
             Lista di record di cronologia
         """
-        endpoint = f"/crm/v3/objects/deals/{deal_id}/associations/properties/{property_name}"
+        logger.info(f"Recupero cronologia per deal {deal_id}, proprietà {property_name}")
+        endpoint = f"/crm/v3/objects/deals/{deal_id}"
+        params = {
+            "propertiesWithHistory": property_name
+        }
         
-        logger.info(f"Recupero cronologia per deal {deal_id}")
-        response = await self._make_request("GET", endpoint)
+        response = await self._make_request("GET", endpoint, params=params)
         
-        return response.get("results", [])
+        # Nelle API v3, la cronologia è dentro propertiesWithHistory
+        history = response.get("propertiesWithHistory", {}).get(property_name, [])
+        return history
     
     async def get_contacts(self, limit: int = 100, after: Optional[str] = None) -> List[Dict]:
         """Recupera i contatti da HubSpot."""
@@ -725,6 +739,45 @@ class HubSpotClient:
         except Exception as e:
             logger.error(f"Errore durante revoca token: {str(e)}")
             return False
+
+    async def get_all_deals_with_history(self, properties_with_history: List[str], limit: int = 100) -> List[Dict]:
+        """
+        Recupera tutti i deal e arricchisce ogni deal con la cronologia delle proprietà specificate.
+        
+        Args:
+            properties_with_history: Lista delle proprietà di cui recuperare la cronologia
+            limit: Limite di deal per richiesta (per paginazione)
+            
+        Returns:
+            Lista di deal arricchiti con properties_history
+        """
+        # 1. Recupera tutti i deal base
+        deals = await self.get_all_deals()
+        
+        logger.info(f"Inizio arricchimento history per {len(deals)} deal...")
+        
+        enriched_deals = []
+        
+        # 2. Cicla sui deal per recuperare la history
+        for deal in deals:
+            deal_id = deal.get("id")
+            history_data = {}
+            
+            for prop in properties_with_history:
+                try:
+                    # Recupera la cronologia per la singola proprietà
+                    prop_history = await self.get_deal_history(deal_id=deal_id, property_name=prop)
+                    history_data[prop] = prop_history
+                except Exception as e:
+                    # Logga l'errore ma non bloccare l'intero processo per un singolo deal fallito
+                    logger.warning(f"Impossibile recuperare history per deal {deal_id}, prop {prop}: {e}")
+            
+            # 3. Arricchisci il deal
+            deal["properties_history"] = history_data
+            enriched_deals.append(deal)
+        
+        logger.info(f"Arricchimento completato per {len(enriched_deals)} deal")
+        return enriched_deals
 
     async def get_usage_stats(self) -> Dict:
         """Restituisce statistiche sull'uso del client."""

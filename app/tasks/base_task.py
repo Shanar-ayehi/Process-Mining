@@ -12,7 +12,15 @@ logger = get_logger()
 celery_app = Celery(
     'process_mining',
     broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend
+    backend=settings.celery_result_backend,
+    include=[
+        'app.tasks.etl_task',
+        'app.tasks.mining_task',
+        'app.tasks.analytics_task',
+        'app.tasks.dq_task',
+        'app.tasks.integration_task',
+        'app.tasks.base_task'
+    ]
 )
 
 # Configurazione Celery

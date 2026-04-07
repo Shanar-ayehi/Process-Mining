@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     
     # Celery
-    celery_broker_url: str = "redis://localhost:6379/0"
-    celery_result_backend: str = "redis://localhost:6379/0"
+    celery_broker_url: str = "redis://redis:6379/0"
+    celery_result_backend: str = "redis://redis:6379/0"
     
     # Privacy & GDPR
     email_hash_salt: str = "process_mining_salt_2024"

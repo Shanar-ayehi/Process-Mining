@@ -2,6 +2,16 @@ import axios from 'axios';
 
 // Configurazione base API
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+axios.defaults.baseURL = API_BASE_URL;
+
+// Axios Request Interceptor: aggiunge automaticamente il token JWT a ogni richiesta
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // Interfacce per la gestione auth
 export interface AuthTokens {
@@ -60,19 +70,19 @@ export async function authenticateWithHubSpot(): Promise<void> {
 // Funzione per gestire il callback OAuth
 export async function handleAuthCallback(code: string): Promise<AuthTokens> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/auth/callback`, {
+    const response = await axios.get('/auth/callback', {
       params: { code }
     });
     
     // Salva token nel localStorage
     if (response.data.access_token) {
-      localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('token_expires_at', new Date(Date.now() + response.data.expires_in * 1000).toISOString());
     }
     
     return response.data;
   } catch (error) {
-    console.error('Errore durante il callback OAuth:', error);
+    console.error('🔴 ERRORE IN HANDLE AUTH CALLBACK:', error);
     throw new Error('Autenticazione fallita');
   }
 }
@@ -80,10 +90,15 @@ export async function handleAuthCallback(code: string): Promise<AuthTokens> {
 // Funzione per verificare lo stato dell'autenticazione
 export async function checkAuthStatus(): Promise<{ authenticated: boolean; user?: User }> {
   try {
-    const response = await axios.get(`${API_BASE_URL}/auth/status`);
+    const response = await axios.get('/auth/status');
     return response.data;
-  } catch (error) {
-    console.error('Errore durante il controllo autenticazione:', error);
+  } catch (error: any) {
+    console.error('🔴 ERRORE REALE IN CHECK AUTH STATUS:', {
+      message: error?.message,
+      status: error?.response?.status,
+      data: error?.response?.data,
+      url: error?.config?.url
+    });
     return { authenticated: false };
   }
 }
@@ -91,11 +106,11 @@ export async function checkAuthStatus(): Promise<{ authenticated: boolean; user?
 // Funzione per effettuare il logout
 export async function logout(): Promise<void> {
   try {
-    await axios.post(`${API_BASE_URL}/auth/logout`);
-    localStorage.removeItem('access_token');
+    await axios.post('/auth/logout');
+    localStorage.removeItem('token');
     localStorage.removeItem('token_expires_at');
   } catch (error) {
-    console.error('Errore durante il logout:', error);
+    console.error('🔴 ERRORE IN LOGOUT:', error);
     throw new Error('Logout fallito');
   }
 }
@@ -108,26 +123,26 @@ export async function refreshToken(): Promise<AuthTokens> {
       throw new Error('Nessun refresh token disponibile');
     }
     
-    const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+    const response = await axios.post('/auth/refresh', {
       refresh_token: refreshToken
     });
     
     // Salva nuovo token
     if (response.data.access_token) {
-      localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('token_expires_at', new Date(Date.now() + response.data.expires_in * 1000).toISOString());
     }
     
     return response.data;
   } catch (error) {
-    console.error('Errore durante il refresh token:', error);
+    console.error('🔴 ERRORE IN REFRESH TOKEN:', error);
     throw new Error('Token refresh fallito');
   }
 }
 
 // Funzione per ottenere il token corrente
 export function getAccessToken(): string | null {
-  return localStorage.getItem('access_token');
+  return localStorage.getItem('token');
 }
 
 // Funzione per verificare se il token è scaduto

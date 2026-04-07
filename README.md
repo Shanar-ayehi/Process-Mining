@@ -175,13 +175,42 @@ Process-Mining/
 
 3. **Configura variabili ambiente**
    ```bash
-   echo "VITE_API_URL=http://localhost:8000/api/v1" > .env
+   # Crea file .env nella directory frontend/
+   echo "VITE_API_BASE_URL=http://localhost:8000/api/v1" > .env
+   echo "VITE_API_URL=http://localhost:8000/api/v1" >> .env
    ```
 
 4. **Avvia frontend**
    ```bash
    npm run dev
    ```
+
+### Autenticazione OAuth 2.0
+
+Il sistema utilizza **OAuth 2.0 con HubSpot** per l'autenticazione. Il flusso è il seguente:
+
+1. **Login**: L'utente accede al frontend e viene reindirizzato a HubSpot per l'autorizzazione
+2. **Callback**: HubSpot reindirizza a `/auth/success` con un JWT token
+3. **Salvataggio**: Il token viene salvato in `localStorage` come `'token'`
+4. **Utilizzo**: Ogni chiamata API invia automaticamente il token tramite un **Axios Request Interceptor**
+5. **Verifica**: Il backend verifica il token JWT su ogni richiesta protetta
+
+#### Configurazione Frontend
+
+Il frontend utilizza un **ProtectedRoute sincrono** che:
+- Controlla la presenza del token in `localStorage` all'avvio
+- Se il token è presente, consente l'accesso immediatamente (no chiamata API)
+- Se il token è assente, reindirizza al login HubSpot
+- L'autorizzazione reale avviene quando le singole API restituiscono 401 se il token è scaduto/invalido
+
+#### Variabili d'Ambiente Frontend
+
+| Variabile | Descrizione | Default |
+|-----------|-------------|---------|
+| `VITE_API_BASE_URL` | URL base del backend API | `http://localhost:8000/api/v1` |
+| `VITE_API_URL` | URL completo per redirect auth | `http://localhost:8000/api/v1` |
+| `VITE_HUBSPOT_CLIENT_ID` | Client ID app HubSpot | - |
+| `VITE_HUBSPOT_REDIRECT_URI` | URI redirect OAuth | Auto-generato |
 
 ### Docker Setup
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import { CssBaseline, Container, Box, AppBar, Toolbar, Typography, Button } from '@mui/material'
 import { Dashboard as DashboardIcon, Analytics as AnalyticsIcon, Settings as SettingsIcon } from '@mui/icons-material'
@@ -9,45 +9,23 @@ import ProcessList from './components/ProcessList'
 import ProcessDetail from './components/ProcessDetail'
 import ProcessAnalysis from './components/ProcessAnalysis'
 import GlobalAnalysis from './components/GlobalAnalysis'
-import AuthCallback from './components/AuthCallback' // <-- AGGIUNTO QUESTO
-import { checkAuthStatus } from './services/auth'
+import AuthCallback from './components/AuthCallback'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Controllo immediato: c'è un token in localStorage?
+  const token = localStorage.getItem('token');
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      // Controllo istantaneo sul localStorage
-      const localToken = localStorage.getItem('access_token');
-      if (!localToken) {
-        setIsAuthenticated(false);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const status = await checkAuthStatus();
-        setIsAuthenticated(status.authenticated);
-      } catch (error) {
-        console.error("Auth check failed", error);
-        setIsAuthenticated(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkAuth();
-  }, []);
-
-  if (loading) return <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px"><Typography>Verifica autenticazione...</Typography></Box>
-
-  if (isAuthenticated === false) {
-    window.location.href = `${API_URL}/auth/hubspot/login`
-    return null
+  if (!token) {
+    // Niente token, vai a fare il login
+    window.location.href = `${API_URL}/auth/hubspot/login`;
+    return null;
   }
-  return <>{children}</>
+
+  // Se il token c'è, entra direttamente.
+  // Le chiamate API useranno questo token e restituiranno 401 se non valido.
+  return <>{children}</>;
 }
 
 function App() {

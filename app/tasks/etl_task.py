@@ -46,13 +46,22 @@ def extract_deals_task(self, properties_with_history: Optional[List[str]] = None
     Returns:
         Dizionario con risultati estrazione
     """
+    import asyncio
+    from app.core.database import async_session
+    from app.services.etl.data_extraction import DataExtractionService
+    
     try:
         logger.info("Inizio task estrazione deal")
         
+        async def _do_extract():
+            async with async_session() as db:
+                extraction_service = DataExtractionService(db=db)
+                return await extraction_service.extract_deals_with_history(
+                    properties_with_history=properties_with_history
+                )
+        
         # Estrai deal con cronologia
-        deals_data = data_extraction_service.extract_all_deals_with_history(
-            properties_with_history=properties_with_history
-        )
+        deals_data = asyncio.run(_do_extract())
         
         result = create_task_result(
             success=True,
@@ -235,13 +244,15 @@ def merge_sources_task(self, portal_id: str,
         return create_task_result(success=False, error=str(e))
 
 @etl_task()
-def run_full_etl_pipeline(self, properties_with_history: Optional[List[str]] = None,
+def run_full_etl_pipeline(self, portal_id: str = "default",
+                         properties_with_history: Optional[List[str]] = None,
                          include_contacts: bool = False,
                          include_companies: bool = False) -> Dict[str, Any]:
     """
     Task orchestratore per l'intera pipeline ETL.
     
     Args:
+        portal_id: ID del portale HubSpot
         properties_with_history: Proprietà di cui estrarre la cronologia
         include_contacts: Se includere l'estrazione contatti
         include_companies: Se includere l'estrazione aziende
@@ -250,23 +261,24 @@ def run_full_etl_pipeline(self, properties_with_history: Optional[List[str]] = N
         Dizionario con risultati pipeline
     """
     try:
-        logger.info("Inizio pipeline ETL completa")
+        print(f"🚀🚀🚀 TASK PIPELINE ETL AVVIATO PER PORTALE: {portal_id} 🚀🚀🚀")
+        logger.info(f"🚀 Inizio pipeline ETL completa per portal_id: {portal_id}")
         
         # Costruisci pipeline base (Deal -> Transform -> Quality -> Privacy)
         pipeline_tasks = [
             extract_deals_task.s(properties_with_history=properties_with_history),
             transform_deals_task.s(),
-            validate_data_quality_task.s(),
-            apply_privacy_governance_task.s()
+            validate_data_quality_task.s(portal_id=portal_id),
+            apply_privacy_governance_task.s(portal_id=portal_id)
         ]
         
         # Se richiesto, estrai anche contatti e aziende in parallelo
         parallel_extraction = []
         if include_contacts:
-            parallel_extraction.append(data_extraction_service.extract_contacts.s())
+            parallel_extraction.append(extract_contacts_task.s())
         
         if include_companies:
-            parallel_extraction.append(data_extraction_service.extract_companies.s())
+            parallel_extraction.append(extract_companies_task.s())
         
         # Crea pipeline completa
         if parallel_extraction:
@@ -274,9 +286,9 @@ def run_full_etl_pipeline(self, properties_with_history: Optional[List[str]] = N
             full_pipeline = chain(
                 group(parallel_extraction + [extract_deals_task.s(properties_with_history=properties_with_history)]),
                 transform_deals_task.s(),
-                validate_data_quality_task.s(),
-                apply_privacy_governance_task.s(),
-                merge_sources_task.s()
+                validate_data_quality_task.s(portal_id=portal_id),
+                apply_privacy_governance_task.s(portal_id=portal_id),
+                merge_sources_task.s(portal_id=portal_id)
             )
         else:
             # Solo pipeline base
@@ -287,13 +299,16 @@ def run_full_etl_pipeline(self, properties_with_history: Optional[List[str]] = N
         
         result_data = create_task_metadata('full_etl_pipeline', 
                                          pipeline_id=result.id,
+                                         portal_id=portal_id,
                                          include_contacts=include_contacts,
                                          include_companies=include_companies)
         
-        logger.info(f"Pipeline ETL avviata: {result.id}")
+        print(f"✅ Pipeline ETL avviata con successo! Pipeline ID: {result.id}")
+        logger.info(f"Pipeline ETL avviata: {result.id} per portal_id: {portal_id}")
         return create_task_result(success=True, data=result_data)
         
     except Exception as e:
+        print(f"❌ ERRORE PIPELINE ETL: {e}")
         logger.error(f"Errore nella pipeline ETL: {e}")
         handle_task_error(self.request.id, e)
         return create_task_result(success=False, error=str(e))
@@ -430,11 +445,20 @@ def extract_contacts_task(self) -> Dict[str, Any]:
     Returns:
         Dizionario con risultati estrazione
     """
+    import asyncio
+    from app.core.database import async_session
+    from app.services.etl.data_extraction import DataExtractionService
+    
     try:
         logger.info("Inizio task estrazione contatti")
         
+        async def _do_extract():
+            async with async_session() as db:
+                extraction_service = DataExtractionService(db=db)
+                return await extraction_service.extract_contacts()
+        
         # Estrai contatti
-        contacts_data = data_extraction_service.extract_contacts()
+        contacts_data = asyncio.run(_do_extract())
         
         result = create_task_result(
             success=True,
@@ -461,11 +485,20 @@ def extract_companies_task(self) -> Dict[str, Any]:
     Returns:
         Dizionario con risultati estrazione
     """
+    import asyncio
+    from app.core.database import async_session
+    from app.services.etl.data_extraction import DataExtractionService
+    
     try:
         logger.info("Inizio task estrazione aziende")
         
+        async def _do_extract():
+            async with async_session() as db:
+                extraction_service = DataExtractionService(db=db)
+                return await extraction_service.extract_companies()
+        
         # Estrai aziende
-        companies_data = data_extraction_service.extract_companies()
+        companies_data = asyncio.run(_do_extract())
         
         result = create_task_result(
             success=True,

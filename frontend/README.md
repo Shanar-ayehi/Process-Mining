@@ -80,11 +80,81 @@ Configura l'URL del backend nel file `.env`:
 
 ```bash
 # Crea file .env nella root di frontend/
-echo "VITE_API_URL=http://localhost:8000/api/v1" > .env
+echo "VITE_API_BASE_URL=http://localhost:8000/api/v1" > .env
+echo "VITE_API_URL=http://localhost:8000/api/v1" >> .env
 ```
 
 ### Variabili d'ambiente
-- `VITE_API_URL`: URL del backend API
+| Variabile | Descrizione | Default |
+|-----------|-------------|---------|
+| `VITE_API_BASE_URL` | URL base backend per Axios | `http://localhost:8000/api/v1` |
+| `VITE_API_URL` | URL completo per redirect auth | `http://localhost:8000/api/v1` |
+| `VITE_HUBSPOT_CLIENT_ID` | Client ID app HubSpot | - |
+| `VITE_HUBSPOT_REDIRECT_URI` | URI redirect OAuth | Auto-generato |
+
+## Autenticazione
+
+### Flusso OAuth 2.0 con HubSpot
+
+Il frontend gestisce l'autenticazione tramite OAuth 2.0 con HubSpot:
+
+1. **Login**: L'utente clicca "Accedi" e viene reindirizzato a HubSpot
+2. **Autorizzazione**: HubSpot chiede i permessi all'utente
+3. **Callback**: HubSpot reindirizza a `/auth/success?token=<JWT>`
+4. **Salvataggio**: Il componente `AuthCallback` salva il JWT in `localStorage` come `'token'`
+5. **Accesso**: `ProtectedRoute` controlla il token e consente l'accesso immediato
+
+### Axios Request Interceptor
+
+Ogni chiamata API invia automaticamente il token JWT tramite un interceptor configurato in `src/services/auth.ts`:
+
+```typescript
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+```
+
+### ProtectedRoute
+
+Il componente `ProtectedRoute` in `App.tsx` implementa la strategia **"trust local token"**:
+
+```typescript
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    // Niente token → redirect al login
+    window.location.href = `${API_URL}/auth/hubspot/login`;
+    return null;
+  }
+
+  // Token presente → accesso immediato
+  return <>{children}</>;
+}
+```
+
+**Vantaggi:**
+- Nessuna chiamata API all'avvio (istantaneo)
+- L'autorizzazione reale avviene quando le API restituiscono 401 se il token è scaduto
+- Elimina loop di redirect causati da errori di rete o configurazione
+
+### Servizio Auth
+
+Le funzioni di autenticazione sono in `src/services/auth.ts`:
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `authenticateWithHubSpot()` | Redirect a HubSpot OAuth |
+| `handleAuthCallback(code)` | Gestisce callback OAuth |
+| `checkAuthStatus()` | Verifica stato autenticazione |
+| `logout()` | Effettua logout |
+| `getAccessToken()` | Ottiene token corrente |
+| `isTokenExpired()` | Verifica scadenza token |
+| `getAuthHeaders()` | Genera header Authorization |
 
 ## Componenti Principali
 
