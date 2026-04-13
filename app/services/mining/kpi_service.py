@@ -265,7 +265,7 @@ class KPIsService:
             return {}
         
         # Calcola tempi di lead per caso
-        case_times = df.groupby('case_id').agg([
+        case_times = df.group_by('case_id').agg([
             pl.col('timestamp').min().alias('start_time'),
             pl.col('timestamp').max().alias('end_time')
         ])
@@ -319,7 +319,7 @@ class KPIsService:
             return {}
         
         # Calcola numero medio di attività per caso
-        case_activity_counts = df.groupby('case_id').agg([
+        case_activity_counts = df.group_by('case_id').agg([
             pl.col('activity').count().alias('activity_count')
         ])
         
@@ -339,7 +339,7 @@ class KPIsService:
             return {}
         
         # Calcola varianti del processo
-        variants = df.groupby('case_id').agg([
+        variants = df.group_by('case_id').agg([
             pl.col('activity').list().alias('variant')
         ])
         
@@ -410,7 +410,7 @@ class KPIsService:
         return {
             'avg_activities_per_case': len(resource_df) / len(resource_df['case_id'].unique()) if len(resource_df['case_id'].unique()) > 0 else 0,
             'total_cases': len(resource_df['case_id'].unique()),
-            'activity_distribution': resource_df.groupby('activity').count().to_dicts()
+            'activity_distribution': resource_df.group_by('activity').count().to_dicts()
         }
     
     def _calculate_activity_duration(self, activity_df: pl.DataFrame) -> Optional[float]:

@@ -268,6 +268,58 @@ class HubSpotClient:
         
         logger.info(f"Recuperati {len(all_deals)} deal totali")
         return all_deals
+
+    async def search_active_deals(self) -> List[Dict]:
+        """
+        Recupera solo i deal che hanno un Owner assegnato, tramite Search API di HubSpot.
+        Ottimizzazione "a monte" per evitare di scaricare i deal vuoti dell'account di prova.
+        
+        Returns:
+            Lista filtrata di deal con proprietario assegnato
+        """
+        all_deals = []
+        after = None
+        endpoint = "/crm/v3/objects/deals/search"
+        
+        logger.info("Inizio ricerca filtrata deal con Owner assegnato tramite Search API")
+        
+        while True:
+            # Costruisci corpo richiesta POST
+            body = {
+                "filterGroups": [
+                    {
+                        "filters": [
+                            {
+                                "propertyName": "hubspot_owner_id",
+                                "operator": "HAS_PROPERTY"
+                            }
+                        ]
+                    }
+                ],
+                "properties": ["dealname", "amount", "hubspot_owner_id", "dealstage", "pipeline"],
+                "limit": 100
+            }
+            
+            # Aggiungi token paginazione se presente
+            if after:
+                body["after"] = after
+            
+            response = await self._make_request("POST", endpoint, data=body)
+            
+            deals = response.get("results", [])
+            if not deals:
+                break
+            
+            all_deals.extend(deals)
+            
+            paging = response.get("paging")
+            if paging and "next" in paging:
+                after = paging["next"]["after"]
+            else:
+                break
+        
+        logger.info(f"Recuperati {len(all_deals)} deal filtrati con Owner assegnato")
+        return all_deals
     
     async def get_deal_history(self, deal_id: str, property_name: str = "dealstage") -> List[Dict]:
         """
@@ -751,8 +803,8 @@ class HubSpotClient:
         Returns:
             Lista di deal arricchiti con properties_history
         """
-        # 1. Recupera tutti i deal base
-        deals = await self.get_all_deals()
+        # 1. Recupera solo i deal con Owner assegnato tramite Search API (ottimizzazione a monte)
+        deals = await self.search_active_deals()
         
         logger.info(f"Inizio arricchimento history per {len(deals)} deal...")
         

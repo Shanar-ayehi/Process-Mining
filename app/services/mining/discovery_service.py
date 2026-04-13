@@ -1,4 +1,5 @@
 import os
+import math
 # Monkey-patch per il bug del PID 0 di pm4py in Docker
 if hasattr(os, 'getppid') and os.getppid() == 0:
     os.getppid = lambda: os.getpid()
@@ -22,6 +23,77 @@ class DiscoveryService:
     def __init__(self):
         self.output_dir = settings.data_dir / "processed"
         self.output_dir.mkdir(parents=True, exist_ok=True)
+    
+    def _sanitize_dict_robust(self, d: Any) -> Any:
+        """
+        Sanifica ricorsivamente TUTTO l'oggetto per renderlo 100% JSON compliant.
+        Gestisce NaN, Inf, tipi numpy, pandas, tuple, set e ogni struttura annidata.
+        Questa funzione è BULLETPROOF e non dovrebbe mai fallire.
+        """
+        import numpy as np
+        import pandas as pd
+        
+        # Caso base: None
+        if d is None:
+            return None
+        
+        # Gestisci Pandas NA/NaN prima di tutto
+        try:
+            if pd.isna(d):
+                return 0.0
+        except:
+            pass
+        
+        # Gestisci numpy NaN e Inf
+        try:
+            if np.isnan(d) or np.isinf(d):
+                return 0.0
+        except:
+            pass
+        
+        # Tipi numpy numerici
+        if isinstance(d, np.floating):
+            return float(d)
+        if isinstance(d, np.integer):
+            return int(d)
+        if isinstance(d, np.bool_):
+            return bool(d)
+        
+        # Dizionari
+        if isinstance(d, dict):
+            return {
+                self._sanitize_dict_robust(key): self._sanitize_dict_robust(value)
+                for key, value in d.items()
+            }
+        
+        # Liste
+        if isinstance(d, list):
+            return [self._sanitize_dict_robust(item) for item in d]
+        
+        # Tuple
+        if isinstance(d, tuple):
+            return tuple(self._sanitize_dict_robust(item) for item in d)
+        
+        # Set
+        if isinstance(d, set):
+            return [self._sanitize_dict_robust(item) for item in d]
+        
+        # Pandas Series
+        if isinstance(d, pd.Series):
+            return self._sanitize_dict_robust(d.fillna(0).to_list())
+        
+        # Pandas DataFrame
+        if isinstance(d, pd.DataFrame):
+            return self._sanitize_dict_robust(d.fillna(0).to_dict(orient='records'))
+        
+        # Float standard Python
+        if isinstance(d, float):
+            if math.isnan(d) or math.isinf(d):
+                return 0.0
+            return d
+        
+        # Tutti gli altri tipi vengono lasciati come sono
+        return d
     
     def discover_dfg(self, df: pl.DataFrame, 
                     output_image_path: Optional[str] = None,
@@ -69,6 +141,9 @@ class DiscoveryService:
                 'statistics': stats,
                 'discovery_timestamp': datetime.now().isoformat()
             }
+            
+            # ✅ SANIFICA TUTTO PRIMA DI RESTITUIRE
+            result = self._sanitize_dict_robust(result)
             
             logger.info("Process Discovery (DFG) completato con successo")
             return result
@@ -234,7 +309,14 @@ class DiscoveryService:
             for variant, count in variants.items():
                 frequency = count / total_cases
                 if frequency >= min_frequency_threshold:
-                    filtered_variants[variant] = count
+                    # Converte la tupla/lista in una stringa leggibile per JSON e Frontend
+                    if isinstance(variant, tuple) or isinstance(variant, list):
+                        # Se gli elementi sono stringhe pulite
+                        variant_str = " ➔ ".join(str(v) for v in variant)
+                    else:
+                        variant_str = str(variant)
+                        
+                    filtered_variants[variant_str] = count
             
             # Ordina varianti per frequenza
             sorted_variants = sorted(filtered_variants.items(), key=lambda x: x[1], reverse=True)
@@ -278,15 +360,31 @@ class DiscoveryService:
         
         try:
             log = self._prepare_event_log(df)
-            
+
+            # ✅ ESTRAZIONE AUTOMAZIONI PRIMA DI CHIAMARE PM4Py (PM4Py cancella le colonne extra)
+            automated_activities = []
+            if 'resource' in df.columns:
+                try:
+                    automated_activities = df.filter(pl.col('resource') == 'WORKFLOW_AUTOMATION')['activity'].unique().to_list()
+                    logger.info(f"Trovate {len(automated_activities)} attività automatizzate WORKFLOW_AUTOMATION")
+                except Exception as e:
+                    logger.warning(f"Impossibile estrarre automazioni: {e}")
+
             # Calcola DFG con performance
             dfg, start_activities, end_activities = pm4py.discover_performance_dfg(log)
-            
+
             # Calcola statistiche
             stats = self._calculate_performance_statistics(dfg)
             
             # Converte Performance DFG in formato JSON per il frontend (con mapping workflow)
-            graph_data = self._dfg_to_graph_format(dfg, start_activities, end_activities, is_performance=True, workflows=workflows)
+            graph_data = self._dfg_to_graph_format(
+                dfg, 
+                start_activities, 
+                end_activities, 
+                is_performance=True, 
+                workflows=workflows,
+                automated_activities=automated_activities
+            )
             
             result = {
                 'performance_dfg': dfg,
@@ -296,6 +394,9 @@ class DiscoveryService:
                 'statistics': stats,
                 'discovery_timestamp': datetime.now().isoformat()
             }
+            
+            # ✅ SANIFICA TUTTO PRIMA DI RESTITUIRE
+            result = self._sanitize_dict_robust(result)
             
             logger.info("Performance DFG completato con successo")
             return result
@@ -383,44 +484,44 @@ class DiscoveryService:
             action_type = action.get("type", "")
             action_config = action.get("config", {})
             
-            # Converti delay da millisecondi a giorni
+            # Converti delay da millisecondi a secondi
             delay_ms = action_config.get("delayMillis", 0)
-            delay_days = round(delay_ms / (1000 * 60 * 60 * 24), 2)  # ms -> giorni
+            delay_seconds = delay_ms / 1000  # ms -> secondi
             
             if action_type == "SEND_EMAIL":
                 actions.append({
-                    "type": "SEND_EMAIL",
-                    "delay_days": delay_days,
-                    "email_id": action_config.get("emailId")
+                "type": "SEND_EMAIL",
+                "delay_seconds": delay_seconds,
+                "email_id": action_config.get("emailId")
                 })
             
             elif action_type == "SET_PROPERTY":
                 actions.append({
-                    "type": "SET_PROPERTY",
-                    "delay_days": delay_days,
-                    "property": action_config.get("propertyName"),
-                    "value": action_config.get("value")
+                "type": "SET_PROPERTY",
+                "delay_seconds": delay_seconds,
+                "property": action_config.get("propertyName"),
+                "value": action_config.get("value")
                 })
             
             elif action_type == "CREATE_TASK":
                 actions.append({
-                    "type": "CREATE_TASK",
-                    "delay_days": delay_days,
-                    "task_type": action_config.get("taskType")
+                "type": "CREATE_TASK",
+                "delay_seconds": delay_seconds,
+                "task_type": action_config.get("taskType")
                 })
             
             elif action_type == "WEBHOOK":
                 actions.append({
-                    "type": "WEBHOOK",
-                    "delay_days": delay_days,
-                    "url": action_config.get("url")
+                "type": "WEBHOOK",
+                "delay_seconds": delay_seconds,
+                "url": action_config.get("url")
                 })
             
             else:
                 # Azione generica
                 actions.append({
-                    "type": action_type,
-                    "delay_days": delay_days
+                "type": action_type,
+                "delay_seconds": delay_seconds
                 })
         
         return actions
@@ -452,7 +553,7 @@ class DiscoveryService:
 
         # --- Nodi: Places ---
         for place in net.places:
-            place_name = place.name
+            place_name = str(place.name)
             is_start = place in initial_places
             is_end = place in final_places
             
@@ -466,7 +567,7 @@ class DiscoveryService:
 
         # --- Nodi: Transitions ---
         for transition in net.transitions:
-            transition_name = transition.name
+            transition_name = str(transition.name)
             # Se la transizione ha label None, è una transizione invisibile (tau/silent)
             label = transition.label if transition.label is not None else "tau"
             
@@ -478,16 +579,21 @@ class DiscoveryService:
             })
 
         # --- Archi ---
-        for arc in net.arcs:
-            source_name = arc.source.name
-            target_name = arc.target.name
-            edge_id = f"e_{source_name}_{target_name}"
+        for i, arc in enumerate(net.arcs):
+            # Forza conversione a stringa per evitare problemi di serializzazione oggetti
+            source_name = str(arc.source.name)
+            target_name = str(arc.target.name)
+            
+            # ID univoco garantito
+            edge_id = f"e_{source_name}_{target_name}_{i}"
             
             edges.append({
                 "id": edge_id,
                 "source": source_name,
                 "target": target_name,
-                "type": "arc"
+                "type": "default", # Tipo standard di React Flow invece di "arc"
+                "weight": 1,       # Peso fittizio per bypassare il filtro frequenza del frontend
+                "label": ""        # Nessuna label per gli archi della rete di Petri
             })
 
         return {"nodes": nodes, "edges": edges}
@@ -498,8 +604,10 @@ class DiscoveryService:
         start_activities: Dict[str, int],
         end_activities: Dict[str, int],
         is_performance: bool = False,
-        workflows: Optional[List[Dict[str, Any]]] = None
+        workflows: Optional[List[Dict[str, Any]]] = None,
+        automated_activities: Optional[List[str]] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
+        automated_activities = automated_activities or []
         """
         Converte un DFG raw di PM4Py in un formato JSON-serializable
         comprensibile per il frontend (lista di Nodi e Archi).
@@ -530,7 +638,8 @@ class DiscoveryService:
                 nodes_dict[source] = {
                     "id": source,
                     "label": source,
-                    "type": node_type
+                    "type": node_type,
+                    "is_automated": source in automated_activities
                 }
 
             # Aggiungi nodo target se non presente
@@ -539,7 +648,8 @@ class DiscoveryService:
                 nodes_dict[target] = {
                     "id": target,
                     "label": target,
-                    "type": node_type
+                    "type": node_type,
+                    "is_automated": target in automated_activities
                 }
 
             # --- Archi ---
@@ -548,20 +658,33 @@ class DiscoveryService:
             if is_performance:
                 # Per Performance DFG, value è un dizionario con 'average', 'minimum', 'maximum'
                 if isinstance(value, dict):
-                    avg_days = round(value.get('average', 0), 2)
-                    min_days = round(value.get('minimum', 0), 2)
-                    max_days = round(value.get('maximum', 0), 2)
+                    # ✅ PM4Py RESTITUISCE TEMPI IN SECONDI, NON GIORNI
+                    avg_seconds = value.get('average', 0)
+                    min_seconds = value.get('minimum', 0)
+                    max_seconds = value.get('maximum', 0)
+                    
+                    # ✅ Formatta correttamente l'etichetta di tempo
+                    hours = avg_seconds / 3600
+                    if hours > 24:
+                        time_label = f"{round(hours / 24, 1)} giorni"
+                    elif hours > 1:
+                        time_label = f"{round(hours, 1)} ore"
+                    else:
+                        minutes = avg_seconds / 60
+                        time_label = f"{round(minutes, 1)} min"
+                    
                     edges.append({
                         "id": edge_id,
                         "source": source,
                         "target": target,
                         "type": "performance",
-                        "weight": avg_days,
-                        "label": f"{avg_days} giorni (media)",
+                        "weight": avg_seconds,
+                        "value_seconds": avg_seconds,
+                        "label": time_label,
                         "details": {
-                            "average_days": avg_days,
-                            "minimum_days": min_days,
-                            "maximum_days": max_days
+                            "average_seconds": avg_seconds,
+                            "minimum_seconds": min_seconds,
+                            "maximum_seconds": max_seconds
                         }
                     })
                 else:
@@ -634,17 +757,17 @@ class DiscoveryService:
         if not performance_dfg:
             return {}
         
-        avg_durations = [info['average'] for info in performance_dfg.values()]
-        min_durations = [info['minimum'] for info in performance_dfg.values()]
-        max_durations = [info['maximum'] for info in performance_dfg.values()]
+        avg_durations = [info.get('average', info.get('mean', 0)) for info in performance_dfg.values()]
+        min_durations = [info.get('minimum', info.get('min', 0)) for info in performance_dfg.values()]
+        max_durations = [info.get('maximum', info.get('max', 0)) for info in performance_dfg.values()]
         
         return {
             'total_transitions': len(performance_dfg),
             'avg_duration_mean': sum(avg_durations) / len(avg_durations) if avg_durations else 0,
             'avg_duration_min': min(avg_durations) if avg_durations else 0,
             'avg_duration_max': max(avg_durations) if avg_durations else 0,
-            'fastest_transition': min(performance_dfg.items(), key=lambda x: x[1]['average']) if avg_durations else None,
-            'slowest_transition': max(performance_dfg.items(), key=lambda x: x[1]['average']) if avg_durations else None
+            'fastest_transition': min(performance_dfg.items(), key=lambda x: x[1].get('average', x[1].get('mean', 0))) if avg_durations else None,
+            'slowest_transition': max(performance_dfg.items(), key=lambda x: x[1].get('average', x[1].get('mean', 0))) if avg_durations else None
         }
 
 # Creazione istanza globale

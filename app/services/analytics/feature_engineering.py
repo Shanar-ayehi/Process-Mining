@@ -107,7 +107,7 @@ class FeatureEngineeringService:
             return features
         
         # Durata totale del caso
-        case_durations = df.groupby('case_id').agg([
+        case_durations = df.group_by('case_id').agg([
             (pl.col('timestamp').max() - pl.col('timestamp').min()).alias('duration')
         ])
         
@@ -146,7 +146,7 @@ class FeatureEngineeringService:
             return features
         
         # Frequenza attività
-        activity_counts = df.groupby('activity').count().sort('count', descending=True)
+        activity_counts = df.group_by('activity').count().sort('count', descending=True)
         
         features['total_activities'] = len(df)
         features['unique_activities'] = len(activity_counts)
@@ -173,8 +173,8 @@ class FeatureEngineeringService:
             return features
         
         # Sequenze per caso
-        case_sequences = df.sort(['case_id', 'timestamp']).groupby('case_id').agg([
-            pl.col('activity').list().alias('sequence')
+        case_sequences = df.sort(['case_id', 'timestamp']).group_by('case_id').agg([
+            pl.col('activity').alias('sequence')
         ])
         
         sequences = case_sequences['sequence'].to_list()
@@ -214,7 +214,7 @@ class FeatureEngineeringService:
             activity_df = df.filter(pl.col('activity') == activity)
             
             # Calcola durata media per questa attività
-            case_times = activity_df.groupby('case_id').agg([
+            case_times = activity_df.group_by('case_id').agg([
                 pl.col('timestamp').min().alias('start'),
                 pl.col('timestamp').max().alias('end')
             ])
@@ -242,8 +242,8 @@ class FeatureEngineeringService:
             return {}
         
         # Crea sequenze per caso
-        case_sequences = df.sort(['case_id', 'timestamp']).groupby('case_id').agg([
-            pl.col('activity').list().alias('sequence')
+        case_sequences = df.sort(['case_id', 'timestamp']).group_by('case_id').agg([
+            pl.col('activity').alias('sequence')
         ])
         
         # Converti sequenze in tuple per hash
@@ -267,8 +267,8 @@ class FeatureEngineeringService:
             return {}
         
         # Matrice handover of work
-        resource_activities = df.groupby('resource').agg([
-            pl.col('activity').unique().list().alias('activities')
+        resource_activities = df.group_by('resource').agg([
+            pl.col('activity').unique().alias('activities')
         ])
         
         resources = resource_activities['resource'].to_list()
@@ -329,8 +329,8 @@ class FeatureEngineeringService:
             return {}
         
         # Cerca pattern ripetitivi
-        case_sequences = df.sort(['case_id', 'timestamp']).groupby('case_id').agg([
-            pl.col('activity').list().alias('sequence')
+        case_sequences = df.sort(['case_id', 'timestamp']).group_by('case_id').agg([
+            pl.col('activity').alias('sequence')
         ])
         
         # Analizza pattern di rework (attività ripetute)

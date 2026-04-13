@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
+import math
+import numpy as np
 
 from app.services.mining.discovery_service import discovery_service
 from app.services.etl.data_discovery import auto_discovery_service
@@ -18,6 +20,26 @@ from app.api.schemas import (
 )
 
 logger = get_logger()
+
+def sanitize_for_json(obj):
+    """
+    Sanifica ricorsivamente un oggetto per renderlo compatibile con JSON standard.
+    Gestisce valori NaN, Inf e tipi numpy che non sono serializzabili nativamente.
+    """
+    if isinstance(obj, float) or isinstance(obj, np.floating):
+        if math.isnan(obj) or np.isnan(obj):
+            return 0.0
+        if math.isinf(obj) or np.isinf(obj):
+            return 0.0
+        return float(obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(i) for i in obj]
+    return obj
+
 
 router = APIRouter(prefix="/mining", tags=["Mining"])
 
@@ -108,8 +130,8 @@ async def get_dfg_with_automations(portal_id: str, include_performance: bool = F
         
         # Carica event log
         from app.core.database import load_event_log
-        table_name = f"event_log_{portal_id}"
-        event_log_df = load_event_log(portal_id=portal_id, table_name=table_name)
+        # ✅ FIX: portal_id è già il nome completo della tabella (non aggiungere prefisso duplicato)
+        event_log_df = load_event_log(portal_id=portal_id, table_name=portal_id)
         
         if event_log_df.is_empty():
             raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
@@ -136,18 +158,145 @@ async def get_dfg_with_automations(portal_id: str, include_performance: bool = F
             result = discovery_service.discover_dfg(event_log_df, workflows=workflows)
         
         # Restituisci solo graph_data per il frontend
-        return {
+        return sanitize_for_json({
             "portal_id": portal_id,
             "graph_data": result.get('graph_data', {}),
             "statistics": result.get('statistics', {}),
             "workflows_mapped": len(workflows),
             "timestamp": datetime.now().isoformat()
-        }
+        })
+        
+    except HTTPException:
+        raise
+    except FileNotFoundError as e:
+        logger.error(f"File non trovato per DFG: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Errore DFG con automazioni: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Errore interno durante l'analisi: {str(e)}")
+
+
+@router.get("/discover/alpha/{portal_id}")
+async def discover_alpha(portal_id: str):
+    """
+    Scopre il modello di processo con algoritmo Alpha Miner.
+    """
+    try:
+        logger.info(f"Richiesta Alpha Miner per portal_id: {portal_id}")
+        
+        from app.core.database import load_event_log
+        event_log_df = load_event_log(portal_id=portal_id, table_name=portal_id)
+        
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
+        
+        result = discovery_service.discover_alpha_miner(event_log_df)
+        
+        return sanitize_for_json({
+            "portal_id": portal_id,
+            "graph_data": result.get('graph_data', {}),
+            "statistics": result.get('statistics', {}),
+            "algorithm": "alpha_miner",
+            "timestamp": datetime.now().isoformat()
+        })
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Errore DFG con automazioni: {e}")
+        logger.error(f"Errore Alpha Miner: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/discover/heuristic/{portal_id}")
+async def discover_heuristic(portal_id: str, dependency_threshold: float = 0.5):
+    """
+    Scopre il modello di processo con algoritmo Heuristic Miner.
+    """
+    try:
+        logger.info(f"Richiesta Heuristic Miner per portal_id: {portal_id}")
+        
+        from app.core.database import load_event_log
+        event_log_df = load_event_log(portal_id=portal_id, table_name=portal_id)
+        
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
+        
+        result = discovery_service.discover_heuristic_miner(event_log_df, dependency_threshold=dependency_threshold)
+        
+        return sanitize_for_json({
+            "portal_id": portal_id,
+            "graph_data": result.get('graph_data', {}),
+            "statistics": result.get('statistics', {}),
+            "algorithm": "heuristic_miner",
+            "dependency_threshold": dependency_threshold,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore Heuristic Miner: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/discover/inductive/{portal_id}")
+async def discover_inductive(portal_id: str):
+    """
+    Scopre il modello di processo con algoritmo Inductive Miner.
+    """
+    try:
+        logger.info(f"Richiesta Inductive Miner per portal_id: {portal_id}")
+        
+        from app.core.database import load_event_log
+        event_log_df = load_event_log(portal_id=portal_id, table_name=portal_id)
+        
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
+        
+        result = discovery_service.discover_inductive_miner(event_log_df)
+        
+        return sanitize_for_json({
+            "portal_id": portal_id,
+            "graph_data": result.get('graph_data', {}),
+            "statistics": result.get('statistics', {}),
+            "algorithm": "inductive_miner",
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore Inductive Miner: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/discover/variants/{portal_id}")
+async def discover_variants(portal_id: str, min_frequency_threshold: float = 0.01):
+    """
+    Estrae le varianti del processo.
+    """
+    try:
+        logger.info(f"Richiesta varianti processo per portal_id: {portal_id}")
+        
+        from app.core.database import load_event_log
+        event_log_df = load_event_log(portal_id=portal_id, table_name=portal_id)
+        
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
+        
+        result = discovery_service.discover_variants(event_log_df, min_frequency_threshold=min_frequency_threshold)
+        
+        return sanitize_for_json({
+            "portal_id": portal_id,
+            "variants": result.get('variants', {}),
+            "statistics": result.get('statistics', {}),
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore estrazione varianti: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 # Conformance checking endpoints

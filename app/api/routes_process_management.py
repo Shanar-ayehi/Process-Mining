@@ -315,15 +315,29 @@ async def get_process_variants(process_id: str):
         logger.error(f"Errore nel recupero varianti processo {process_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Errore nel recupero varianti: {str(e)}")
 
+# Cache globale per la lista processi (TTL 60 secondi)
+_discover_processes_cache = {
+    "timestamp": 0,
+    "data": []
+}
+CACHE_TTL = 60  # secondi
+
 async def _discover_processes() -> List[Dict[str, Any]]:
     """
     Scopre automaticamente i processi disponibili leggendo i file reali da data/processed/.
+    ✅ CACHE: I risultati vengono salvati per 60 secondi per evitare ricaricamenti ripetuti.
     
     Returns:
         Lista di processi scoperti
     """
+    import time
     import polars as pl
     from pathlib import Path
+    
+    # ✅ Controlla se la cache è ancora valida
+    current_time = time.time()
+    if current_time - _discover_processes_cache["timestamp"] < CACHE_TTL:
+        return _discover_processes_cache["data"]
     
     try:
         processes = []
@@ -409,6 +423,11 @@ async def _discover_processes() -> List[Dict[str, Any]]:
                 continue
         
         logger.info(f"Processi scoperti: {len(processes)}")
+        
+        # ✅ Aggiorna la cache
+        _discover_processes_cache["timestamp"] = time.time()
+        _discover_processes_cache["data"] = processes
+        
         return processes
         
     except Exception as e:

@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-04-09T09:17:47.778454",
+  "total_rows": 312,
+  "validation_passed": true,
+  "errors": [],
+  "warnings": [],
+  "statistics": {
+    "unique_cases": 60,
+    "unique_activities": 6,
+    "time_range": {
+      "start": "2026-01-08T13:59:00.465020",
+      "end": "2026-03-30T16:58:00.465020"
+    },
+    "avg_events_per_case": 5.2
+  }
+}

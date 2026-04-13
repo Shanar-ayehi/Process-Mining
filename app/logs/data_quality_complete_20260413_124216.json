@@ -1,0 +1,117 @@
+{
+  "timestamp": "2026-04-13T12:42:15.230626",
+  "environment": "development",
+  "dataset_info": {
+    "total_rows": 2476,
+    "total_columns": 14,
+    "columns": [
+      "case_id",
+      "activity",
+      "timestamp",
+      "resource",
+      "stage_id",
+      "stage_order",
+      "is_final_stage",
+      "dealname",
+      "amount",
+      "pipeline",
+      "dealstage",
+      "hubspot_owner_id",
+      "transformed_at",
+      "environment"
+    ]
+  },
+  "schema_validation": {
+    "timestamp": "2026-04-13T12:42:15.231025",
+    "total_rows": 2476,
+    "validation_passed": true,
+    "errors": [],
+    "warnings": [],
+    "statistics": {
+      "unique_cases": 500,
+      "unique_activities": 6,
+      "time_range": {
+        "start": "2025-10-15T15:04:35.595207",
+        "end": "2026-04-03T20:04:35.595207"
+      },
+      "avg_events_per_case": 4.952
+    }
+  },
+  "completeness_validation": {
+    "timestamp": "2026-04-13T12:42:15.390618",
+    "total_rows": 2476,
+    "completeness_score": 0.9285714285714286,
+    "missing_values": {
+      "case_id": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "activity": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "timestamp": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "resource": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "stage_id": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "stage_order": {
+        "count": 2476,
+        "percentage": 100.0
+      },
+      "is_final_stage": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "dealname": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "amount": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "pipeline": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "dealstage": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "hubspot_owner_id": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "transformed_at": {
+        "count": 0,
+        "percentage": 0.0
+      },
+      "environment": {
+        "count": 0,
+        "percentage": 0.0
+      }
+    },
+    "critical_missing": [],
+    "warnings": []
+  },
+  "consistency_validation": {
+    "timestamp": "2026-04-13T12:42:15.392229",
+    "total_rows": 2476,
+    "consistency_score": 1.0,
+    "inconsistencies": [],
+    "duplicates_found": 0,
+    "timestamp_issues": []
+  },
+  "overall_score": 0.9761904761904763,
+  "recommendations": [
+    "Eccellente qualità dati"
+  ]
+}

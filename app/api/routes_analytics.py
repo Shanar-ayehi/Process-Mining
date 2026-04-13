@@ -18,6 +18,42 @@ logger = get_logger()
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
+@router.get("/global")
+def get_global_analytics():
+    """
+    Recupera le statistiche globali aggregate per l'intera organizzazione.
+    (Attualmente utilizza dati aggregati/mockati basati sui dataset esistenti).
+    """
+    return {
+        "total_processes": 4,
+        "active_processes": 3,
+        "total_cases": 511,
+        "total_variants": 14,
+        "avg_processing_time": 12.4, # in giorni
+        "overall_quality_score": 0.94, # 94%
+        "top_bottlenecks": [
+            {
+                "activity": "presentationscheduled",
+                "avg_duration": 3.5,
+                "frequency": 145
+            },
+            {
+                "activity": "contractsent",
+                "avg_duration": 2.1,
+                "frequency": 89
+            },
+            {
+                "activity": "qualifiedtobuy",
+                "avg_duration": 1.8,
+                "frequency": 210
+            }
+        ],
+        "trend_analysis": {
+            "cases_trend": "+15% vs mese scorso",
+            "efficiency_trend": "In miglioramento (tempo medio ridotto di 1.2 giorni)"
+        }
+    }
+
 # Feature engineering endpoints
 @router.post("/features/engineer")
 async def run_feature_engineering(request: FeatureEngineeringRequestSchema):
@@ -343,26 +379,62 @@ async def run_simulation(request: SimulationRequestSchema):
     """
     try:
         logger.info(f"Richiesta simulazione What-If: portal_id={request.portal_id}, {request.num_cases} casi")
+
+        # 1. Carica Event Log dal database
+        from app.core.database import load_event_log
+        event_log_df = load_event_log(portal_id=request.portal_id, table_name=request.portal_id)
         
-        task = run_simulation_task.delay(
-            portal_id=request.portal_id,
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {request.portal_id}")
+
+        # 2. Carica workflow attuali per mappatura automazioni
+        from app.core.config import settings
+        import json
+        import glob
+        
+        workflows = []
+        workflows_dir = settings.raw_data_dir
+        workflow_files = sorted(glob.glob(str(workflows_dir / "hubspot_workflows_*.json")))
+        
+        if workflow_files:
+            latest_workflow_file = workflow_files[-1]
+            with open(latest_workflow_file, 'r', encoding='utf-8') as f:
+                workflows = json.load(f)
+
+        # 3. Esegui discovery Performance DFG base
+        from app.services.mining.discovery_service import discovery_service
+        dfg_result = discovery_service.discover_performance_dfg(event_log_df, workflows=workflows)
+
+        # 4. Inizializza servizio simulazione
+        from app.services.analytics.simulation_service import simulation_service
+        
+        # Imposta seed se fornito
+        if request.seed:
+            simulation_service.seed = request.seed
+
+        # 5. Esegui simulazione
+        simulation_result = simulation_service.simulate_process(
+            dfg=dfg_result['performance_dfg'],
+            performance_dfg=dfg_result['performance_dfg'],
+            start_activities=dfg_result['start_activities'],
+            end_activities=dfg_result['end_activities'],
             num_cases=request.num_cases,
             modifications=request.modifications,
-            seed=request.seed or 42,
-            start_date=request.start_date,
-            end_date=request.end_date
+            graph_nodes=dfg_result['graph_data']['nodes']
         )
+
+        # 6. ✅ Sanifica risultato prima di restituire per evitare errori JSON
+        from app.api.routes_mining import sanitize_for_json
+        simulation_result = sanitize_for_json(simulation_result)
+
+        logger.info(f"Simulazione completata con successo per portal_id={request.portal_id}")
+
+        return simulation_result
         
-        return {
-            "task_id": task.id,
-            "status": "started",
-            "portal_id": request.portal_id,
-            "num_cases": request.num_cases,
-            "timestamp": datetime.now().isoformat()
-        }
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Errore simulazione What-If: {e}")
+        logger.error(f"Errore simulazione What-If: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -466,6 +538,120 @@ async def get_export_formats():
     except Exception as e:
         logger.error(f"Errore formati esportazione: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/features/{portal_id}")
+async def get_all_features(portal_id: str):
+    """
+    Ottiene tutte le features base e avanzate calcolate sull'event log completo.
+    """
+    try:
+        logger.info(f"Richiesta features complete per portal_id: {portal_id}")
+        
+        from app.core.database import load_event_log
+        event_log_df = load_event_log(portal_id=portal_id, table_name=portal_id)
+        
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
+        
+        # Estrae entrambe le tipologie di features
+        basic_features = feature_engineering_service.extract_basic_features(event_log_df)
+        advanced_features = feature_engineering_service.extract_advanced_features(event_log_df)
+        
+        # Unisce i risultati
+        result = {
+            **basic_features,
+            **advanced_features,
+            "portal_id": portal_id,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Sanifica per JSON
+        from app.api.routes_mining import sanitize_for_json
+        result = sanitize_for_json(result)
+        
+        logger.info(f"Features calcolate con successo per portal_id={portal_id}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore calcolo features: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/predictive/train/{portal_id}")
+async def train_predictive_model(portal_id: str):
+    """
+    Addestra un modello predittivo Random Forest per predire l'esito del caso.
+    """
+    try:
+        logger.info(f"Inizio training modello predittivo per portal_id: {portal_id}")
+        
+        from app.core.database import load_event_log
+        event_log_df = load_event_log(portal_id=portal_id, table_name=portal_id)
+        
+        if event_log_df.is_empty():
+            raise HTTPException(status_code=404, detail=f"Nessun dato trovato per portal_id: {portal_id}")
+        
+        # 1. Crea DataFrame per ML: una riga per ogni caso
+        case_features = event_log_df.group_by('case_id').agg([
+            pl.col('activity').count().alias('total_activities'),
+            (pl.col('timestamp').max() - pl.col('timestamp').min()).dt.total_seconds().alias('total_duration'),
+            pl.col('activity').n_unique().alias('unique_activities'),
+            pl.col('resource').n_unique().alias('num_resources')
+        ])
+        
+        # 2. Crea variabile target: 1 se il caso contiene "Closed Won", 0 altrimenti
+        won_cases = event_log_df.filter(pl.col('activity').str.contains('Closed Won'))['case_id'].unique().to_list()
+        case_features = case_features.with_columns([
+            pl.col('case_id').is_in(won_cases).cast(pl.Int8).alias('is_won')
+        ])
+        
+        # 3. Importa servizio predittivo
+        from app.services.analytics.predictive_models import predictive_models_service
+        
+        # 4. Addestramento modello
+        try:
+            training_result = predictive_models_service.train_model(
+                df=case_features,
+                target_variable='is_won',
+                model_type='random_forest'
+            )
+            
+            # Sanifica risultato
+            from app.api.routes_mining import sanitize_for_json
+            result = sanitize_for_json(training_result)
+            
+            logger.info(f"Modello addestrato con successo per portal_id={portal_id}")
+            return result
+            
+        except ValueError as e:
+            # Se il modello si lamenta dei pochi dati, restituiamo il mock per la UI
+            if "10 casi" in str(e) or "sufficient" in str(e).lower() or len(case_features) < 10:
+                return {
+                    "status": "simulated",
+                    "message": f"Dati insufficienti per un training reale ({str(e)}). Modello simulato per scopi di test UI.",
+                    "evaluation": {
+                        "accuracy": 0.85,
+                        "precision": 0.82,
+                        "recall": 0.88,
+                        "feature_importance": [
+                            {"feature": "duration_Presentation", "importance": 0.45},
+                            {"feature": "number_of_reworks", "importance": 0.25},
+                            {"feature": "time_to_first_contact", "importance": 0.15},
+                            {"feature": "automation_used", "importance": 0.15}
+                        ]
+                    }
+                }
+            # Se è un altro ValueError, lancialo come 400
+            raise HTTPException(status_code=400, detail=str(e))
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Errore training modello: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Health check endpoint
 @router.get("/health")

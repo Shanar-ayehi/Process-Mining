@@ -25,23 +25,35 @@ class HubSpotMapper:
             Lista di eventi per il log
         """
         events = []
-        deal_id = deal_data.get(self.data_structure.deal_id_field)
+        # ✅ FIX DEFINITIVO: Case ID Unico - GARANTITO che tutti gli eventi di questo deal abbiano lo stesso ID
+        # Usiamo direttamente l'id del deal, che è immutabile e unico per tutta la durata del deal
+        deal_id = str(deal_data.get('id')).strip()
+        
+        # Controllo di sicurezza: se per qualche motivo l'id è mancante, fallisco esplicitamente
+        if not deal_id or deal_id == 'None':
+            logger.error(f"❌ DEAL SENZA ID! Dati ricevuti: {list(deal_data.keys())}")
+            raise ValueError("Deal ID obbligatorio mancante")
+            
+        logger.debug(f"✅ Case ID assegnato: {deal_id} per tutti gli eventi di questo deal")
         deal_properties = deal_data.get('properties', {})
         
         # Estrai la cronologia delle fasi usando la configurazione dinamica
         history_data = deal_data.get(self.data_structure.deal_history_field, {})
         stage_history = history_data.get(self.data_structure.stage_field, [])
         
-        # Ordina la cronologia per timestamp
-        stage_history.sort(key=lambda x: x.get(self.data_structure.timestamp_field, 0))
+        # Ordina la cronologia per timestamp (supporta stringhe ISO 8601 e numeri)
+        def sort_key(record):
+            ts = record.get(self.data_structure.timestamp_field, "0")
+            return str(ts)
+        
+        stage_history.sort(key=sort_key)
         
         for record in stage_history:
-            # Mappa il nome della fase usando la configurazione dinamica
+            # ✅ FIX: Mappatura automatica fasi - usa direttamente il valore originale
             stage_value = record.get('value', '')
-            activity_name = self.config_manager.get_stage_mapping(stage_value.lower())
-            if not activity_name:
-                activity_name = f"Fase Sconosciuta: {stage_value}"
-                logger.warning(f"Fase non mappata: {stage_value}")
+            # Usa direttamente il nome della fase da HubSpot, formattato in Title Case per leggibilità
+            activity_name = str(stage_value).strip().replace('_', ' ').title()
+            logger.debug(f"Fase rilevata automaticamente: {activity_name}")
             
             # Estrai informazioni aggiuntive
             timestamp = self._parse_timestamp(record.get(self.data_structure.timestamp_field))
@@ -78,11 +90,40 @@ class HubSpotMapper:
             DataFrame Polars pronto per l'analisi
         """
         all_events = []
+
+        # Unwrap automatico wrapper Celery Task Response
+        if isinstance(deals_data, dict):
+            logger.info("DEBUG MAPPER - Rilevato wrapper Celery, eseguo unwrapping dati...")
+            
+            # Estrai dati dal wrapper standard create_task_result
+            if 'data' in deals_data:
+                deals_data = deals_data['data']
+                
+            # Se data è ancora un dizionario, estrai la lista deal direttamente
+            if isinstance(deals_data, dict):
+                # Cerca la lista dei deal tra tutte le chiavi comuni
+                for key in ['deals', 'deals_data', 'results', 'items']:
+                    if key in deals_data and isinstance(deals_data[key], list):
+                        logger.info(f"DEBUG MAPPER - Trovata lista deal in chiave: {key}")
+                        deals_data = deals_data[key]
+                        break
+
+        # DEBUG LOG per identificare problema 0 eventi
+        if deals_data and len(deals_data) > 0:
+            logger.info(f"DEBUG MAPPER - Ricevuti {len(deals_data)} deal totali")
+            logger.info(f"DEBUG MAPPER - Chiavi primo deal: {list(deals_data[0].keys())}")
+            logger.info(f"DEBUG MAPPER - propertiesWithHistory presente: {'propertiesWithHistory' in deals_data[0]}")
+            if 'propertiesWithHistory' in deals_data[0]:
+                logger.info(f"DEBUG MAPPER - Chiavi dentro propertiesWithHistory: {list(deals_data[0]['propertiesWithHistory'].keys())}")
+                logger.info(f"DEBUG MAPPER - Numero record history: {len(deals_data[0]['propertiesWithHistory'].get('dealstage', []))}")
         
         for deal in deals_data:
             events = self.map_deal_to_event_log(deal)
+            logger.info(f"DEBUG MAPPER - Deal {deal.get('id')} generati {len(events)} eventi")
             all_events.extend(events)
         
+        logger.info(f"DEBUG MAPPER - Totale eventi generati: {len(all_events)}")
+
         if not all_events:
             logger.warning("Nessun evento trovato nei deal")
             return pl.DataFrame()
@@ -90,11 +131,10 @@ class HubSpotMapper:
         # Crea DataFrame
         df = pl.DataFrame(all_events)
         
-        # Converte timestamp in datetime
+        # Converte timestamp in datetime (Fix per formato ISO con Z finale)
         if 'timestamp' in df.columns:
             df = df.with_columns([
-                pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S.%fZ")
-                .fill_null(pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ"))
+                pl.col("timestamp").str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
             ])
         
         # Ordina cronologicamente

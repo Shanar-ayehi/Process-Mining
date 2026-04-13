@@ -8,8 +8,12 @@ import {
   Edge,
   ConnectionMode,
   MarkerType,
+  useNodesState,
+  useEdgesState,
+  Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import dagre from 'dagre';
 import {
   Box,
   Typography,
@@ -24,17 +28,28 @@ import {
 import {
   FilterList as FilterIcon,
   Refresh as RefreshIcon,
+  List as ListIcon,
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
 import CustomNode from './CustomNode';
 import WhatIfSidebar from './WhatIfSidebar';
+import Drawer from '@mui/material/Drawer';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import CloseIcon from '@mui/icons-material/Close';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import ProcessAnalyticsDashboard from './ProcessAnalyticsDashboard';
+import ProcessPredictiveAI from './ProcessPredictiveAI';
 
 interface GraphNode {
   id: string;
   label: string;
   type: 'start' | 'end' | 'normal';
+  is_automated?: boolean;
   automation_rules?: Array<{
     workflow_id: string;
     workflow_name: string;
@@ -61,6 +76,69 @@ interface NodePerformance {
   [nodeId: string]: number; // average time in days
 }
 
+// Auto Layout con Dagre
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
+  dagreGraph.setGraph({ 
+    rankdir: direction,
+    nodesep: 60,
+    ranksep: 80,
+    marginx: 40,
+    marginy: 40
+  });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: 172, height: 52 });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      targetPosition: Position.Top,
+      sourcePosition: Position.Bottom,
+      position: {
+        x: nodeWithPosition.x - 172 / 2,
+        y: nodeWithPosition.y - 52 / 2,
+      },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+};
+
+/**
+ * Formatta durata in secondi in unità di misura leggibile
+ */
+const formatDuration = (seconds: number): string => {
+  if (!seconds || isNaN(seconds) || seconds <= 0) return '0 sec';
+
+  if (seconds < 60) {
+    return `${Math.round(seconds)} sec`;
+  }
+
+  const minutes = seconds / 60;
+  if (minutes < 60) {
+    return `${minutes.toFixed(1)} min`;
+  }
+
+  const hours = minutes / 60;
+  if (hours < 24) {
+    return `${hours.toFixed(1)} ore`;
+  }
+
+  const days = hours / 24;
+  return `${days.toFixed(1)} giorni`;
+};
+
 const ProcessAnalysis: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
@@ -74,6 +152,16 @@ const ProcessAnalysis: React.FC = () => {
   const [maxFrequency, setMaxFrequency] = useState(100);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [viewType, setViewType] = useState<'performance' | 'frequency'>('performance');
+  const [algorithm, setAlgorithm] = useState<'dfg_performance' | 'alpha' | 'heuristic' | 'inductive'>('dfg_performance');
+  const [variantsOpen, setVariantsOpen] = useState(false);
+  const [variantsData, setVariantsData] = useState<any>(null);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+
+  // ✅ React Flow State per Drag & Drop
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   // Fetch graph data
   const fetchGraphData = useCallback(async () => {
@@ -82,10 +170,29 @@ const ProcessAnalysis: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // ✅ Reset stato grafo per feedback visivo durante caricamento
+      setNodes([]);
+      setEdges([]);
+      setGraphData(null);
 
-      const response = await axios.get(
-        `${API_BASE_URL}/mining/discover/dfg-with-automations/${id}?include_performance=true`
-      );
+      let endpoint = '';
+      switch(algorithm) {
+        case 'dfg_performance':
+          endpoint = `${API_BASE_URL}/mining/discover/dfg-with-automations/${id}?include_performance=true`;
+          break;
+        case 'alpha':
+          endpoint = `${API_BASE_URL}/mining/discover/alpha/${id}`;
+          break;
+        case 'heuristic':
+          endpoint = `${API_BASE_URL}/mining/discover/heuristic/${id}`;
+          break;
+        case 'inductive':
+          endpoint = `${API_BASE_URL}/mining/discover/inductive/${id}`;
+          break;
+      }
+
+      const response = await axios.get(endpoint);
 
       const data = response.data;
       setGraphData(data.graph_data);
@@ -114,11 +221,11 @@ const ProcessAnalysis: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, API_BASE_URL]);
+  }, [id, API_BASE_URL, algorithm]);
 
   useEffect(() => {
     fetchGraphData();
-  }, [fetchGraphData]);
+  }, [id, algorithm, fetchGraphData]);
 
   // Filter edges by frequency
   const filteredEdges = useMemo(() => {
@@ -133,7 +240,7 @@ const ProcessAnalysis: React.FC = () => {
     return graphData.nodes.map((node) => ({
       id: node.id,
       type: 'custom',
-      position: { x: 0, y: 0 }, // Will be auto-layouted
+      position: { x: 0, y: 0 },
       data: {
         label: node.label,
         type: node.type,
@@ -164,6 +271,15 @@ const ProcessAnalysis: React.FC = () => {
       },
     }));
   }, [filteredEdges]);
+
+  // Applica Auto Layout automatico
+  useEffect(() => {
+    if (rfNodes.length > 0) {
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(rfNodes, rfEdges);
+      setNodes(layoutedNodes);
+      setEdges(layoutedEdges);
+    }
+  }, [rfNodes, rfEdges, setNodes, setEdges]);
 
   // Node types for React Flow
   const nodeTypes = useMemo(
@@ -234,8 +350,22 @@ const ProcessAnalysis: React.FC = () => {
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Bar */}
-      <Paper elevation={2} sx={{ p: 2, borderRadius: 0 }}>
+      {/* Tabs Navigation */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          sx={{ px: 2 }}
+        >
+          <Tab label="Mappa Processo" />
+          <Tab label="Statistiche" />
+          <Tab label="🤖 Previsioni AI" />
+        </Tabs>
+      </Box>
+
+      {/* Top Bar (solo se tab Mappa è attivo) */}
+      {activeTab === 0 && (
+        <Paper elevation={2} sx={{ p: 2, borderRadius: 0 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
           <Box>
             <Typography variant="h6">
@@ -278,11 +408,57 @@ const ProcessAnalysis: React.FC = () => {
               size="small"
             />
             <Chip
-              label={`${graphData?.nodes.filter(n => n.automation_rules && n.automation_rules.length > 0).length || 0} Automazioni`}
+              label={`${graphData?.nodes.filter(n => n.is_automated || (n.automation_rules && n.automation_rules.length > 0)).length || 0} Automazioni`}
               color="secondary"
               size="small"
             />
           </Box>
+
+          {/* Selettore Algoritmo */}
+          <Box minWidth={180}>
+            <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              Algoritmo Discovery
+            </Typography>
+            <select
+              aria-label="Seleziona Algoritmo"
+              title="Seleziona Algoritmo"
+              value={algorithm}
+              onChange={(e) => setAlgorithm(e.target.value as any)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 4,
+                border: '1px solid rgba(0,0,0,0.12)',
+                backgroundColor: 'white',
+                fontSize: '0.875rem',
+                width: '100%',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="dfg_performance">DFG (Performance)</option>
+              <option value="alpha">Alpha Miner</option>
+              <option value="heuristic">Heuristic Miner</option>
+              <option value="inductive">Inductive Miner</option>
+            </select>
+          </Box>
+
+          <Tooltip title="Visualizza Varianti">
+            <IconButton 
+              onClick={async () => {
+                setLoadingVariants(true);
+                try {
+                  const response = await axios.get(`${API_BASE_URL}/mining/discover/variants/${id}`);
+                  setVariantsData(response.data);
+                  setVariantsOpen(true);
+                } catch (err) {
+                  console.error('Errore caricamento varianti:', err);
+                } finally {
+                  setLoadingVariants(false);
+                }
+              }}
+            >
+              <ListIcon />
+            </IconButton>
+          </Tooltip>
 
           <Tooltip title="Aggiorna">
             <IconButton onClick={fetchGraphData}>
@@ -291,14 +467,18 @@ const ProcessAnalysis: React.FC = () => {
           </Tooltip>
         </Box>
       </Paper>
+      )}
 
-      {/* React Flow Canvas */}
+      {/* Tab Content */}
       <Box flex={1} position="relative">
-        <ReactFlow
-          nodes={rfNodes}
-          edges={rfEdges}
+        {activeTab === 0 ? (
+          <ReactFlow
+          nodes={nodes}
+          edges={edges}
           nodeTypes={nodeTypes}
           connectionMode={ConnectionMode.Loose}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           onPaneClick={handlePaneClick}
@@ -334,7 +514,12 @@ const ProcessAnalysis: React.FC = () => {
               </Typography>
             </Box>
           )}
-        </ReactFlow>
+          </ReactFlow>
+        ) : activeTab === 1 ? (
+          <ProcessAnalyticsDashboard />
+        ) : (
+          <ProcessPredictiveAI />
+        )}
       </Box>
 
       {/* What-If Sidebar */}
@@ -347,6 +532,49 @@ const ProcessAnalysis: React.FC = () => {
         }}
         onSimulate={handleSimulate}
       />
+
+      {/* Varianti Drawer */}
+      <Drawer anchor="right" open={variantsOpen} onClose={() => setVariantsOpen(false)}>
+        <Box sx={{ width: 480, p: 3 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Typography variant="h6">Varianti di Processo</Typography>
+            <IconButton onClick={() => setVariantsOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          {loadingVariants ? (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          ) : variantsData ? (
+            <>
+              <Box mb={2}>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Totale varianti:</strong> {variantsData.statistics.total_variants}<br/>
+                  <strong>Visualizzate:</strong> {variantsData.statistics.filtered_variants}<br/>
+                  <strong>Copertura:</strong> {variantsData.statistics.coverage_percentage.toFixed(1)}%
+                </Typography>
+              </Box>
+
+              <List sx={{ maxHeight: 'calc(100vh - 180px)', overflow: 'auto' }}>
+                {Object.entries(variantsData.variants).map(([path, count]: any, index) => (
+                  <ListItem key={index} divider alignItems="flex-start">
+                    <ListItemText
+                      primary={path}
+                      primaryTypographyProps={{
+                        fontSize: '0.875rem',
+                        lineHeight: 1.5
+                      }}
+                      secondary={`${count} casi • ${((count / variantsData.statistics.covered_cases) * 100).toFixed(1)}%`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          ) : null}
+        </Box>
+      </Drawer>
     </Box>
   );
 };

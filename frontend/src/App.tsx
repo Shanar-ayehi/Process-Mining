@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import { CssBaseline, Container, Box, AppBar, Toolbar, Typography, Button } from '@mui/material'
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Dashboard as DashboardIcon, Analytics as AnalyticsIcon, Settings as SettingsIcon } from '@mui/icons-material'
 import { ReactFlowProvider } from '@xyflow/react'
 
@@ -12,6 +13,53 @@ import GlobalAnalysis from './components/GlobalAnalysis'
 import AuthCallback from './components/AuthCallback'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+
+const modernTheme = createTheme({
+  palette: {
+    primary: { main: '#4F46E5' }, // Indaco moderno
+    secondary: { main: '#10B981' }, // Verde Smeraldo
+    background: { default: '#F8FAFC', paper: '#FFFFFF' },
+    text: { primary: '#1E293B', secondary: '#64748B' },
+  },
+  shape: { borderRadius: 12 },
+  typography: {
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h4: { fontWeight: 700, letterSpacing: '-0.02em' },
+    h5: { fontWeight: 600, letterSpacing: '-0.01em' },
+    h6: { fontWeight: 600 },
+    button: { textTransform: 'none', fontWeight: 600 },
+  },
+  components: {
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
+          border: '1px solid #E2E8F0',
+          backgroundImage: 'none',
+        }
+      }
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#FFFFFF',
+          color: '#0F172A',
+          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+        }
+      }
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: { borderRadius: 8 }
+      }
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: { backgroundImage: 'none' }
+      }
+    }
+  }
+});
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Controllo immediato: c'è un token in localStorage?
@@ -30,7 +78,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function App() {
   return (
-    <Router>
+    <ThemeProvider theme={modernTheme}>
+      <Router>
       <CssBaseline />
       <div className="process-mining-app">
         <AppBar position="static" color="primary">
@@ -65,7 +114,8 @@ function App() {
           </ReactFlowProvider>
         </Container>
       </div>
-    </Router>
+      </Router>
+    </ThemeProvider>
   )
 }
 export default App

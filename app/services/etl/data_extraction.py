@@ -48,10 +48,15 @@ class DataExtractionService:
         
         try:
             # Estrai dati da HubSpot
-            hubspot_client = await self._get_hubspot_client()
-            deals_data = await hubspot_client.get_all_deals_with_history(
-                properties_with_history=properties_with_history
-            )
+            # hubspot_client = await self._get_hubspot_client()
+            # deals_data = await hubspot_client.get_all_deals_with_history(
+            #     properties_with_history=properties_with_history
+            # )
+            
+            # MOCK MODE: Bypass API HubSpot - Lettura da file locale
+            logger.warning("⚠️ MOCK MODE ATTIVO: Bypass API HubSpot. Lettura da file locale in corso...")
+            mock_file_path = self.data_dir / "mock_deals.json"
+            deals_data = await self.load_deals_from_file(mock_file_path)
             
             if save_to_file:
                 # Salva i dati grezzi

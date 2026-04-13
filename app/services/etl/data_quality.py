@@ -21,7 +21,7 @@ class EventLogSchema:
         "resource": Column(str, nullable=True, checks=[
             Check(lambda x: x.str.len() > 0, element_wise=False, ignore_na=True)
         ]),
-        "deal_name": Column(str, nullable=True),
+        "dealname": Column(str, nullable=True),
         "amount": Column(str, nullable=True),
         "pipeline": Column(str, nullable=True),
         "stage_id": Column(str, nullable=True),
@@ -249,7 +249,7 @@ class DataQualityService:
                 }
             
             # Eventi medi per caso
-            case_counts = df.groupby('case_id').count()
+            case_counts = df.group_by('case_id').count()
             stats['avg_events_per_case'] = case_counts['count'].mean()
         
         return stats
@@ -262,13 +262,20 @@ class DataQualityService:
         critical_columns = ['case_id', 'activity', 'timestamp']
         for column in critical_columns:
             if column in df.columns:
-                empty_count = df.filter(pl.col(column) == '').height()
+                # ✅ FIX: Controllo sicuro per tipo di dato
+                if df[column].dtype in [pl.Utf8, pl.Categorical, pl.String]:
+                    # Colonne testuali: controlla sia null che stringa vuota
+                    empty_count = df.filter((pl.col(column).is_null()) | (pl.col(column) == '')).height
+                else:
+                    # Colonne non testuali (DateTime, numeri): controlla solo null
+                    empty_count = df.filter(pl.col(column).is_null()).height
+                
                 if empty_count > 0:
-                    checks['errors'].append(f"Colonna {column} ha {empty_count} valori vuoti")
+                    checks['errors'].append(f"Colonna {column} ha {empty_count} valori vuoti o nulli")
         
         # Controllo tipi dati
         if 'timestamp' in df.columns:
-            if not pl.datatypes.is_temporal(df['timestamp'].dtype):
+            if df['timestamp'].dtype not in pl.TEMPORAL_DTYPES:
                 checks['warnings'].append("Colonna timestamp non è di tipo temporale")
         
         return checks

@@ -214,7 +214,7 @@ class DataTransformationService:
         for column in sensitive_columns:
             if column in df_pseudonymized.columns:
                 df_pseudonymized = df_pseudonymized.with_columns([
-                    pl.col(column).apply(lambda x: privacy_manager.hash_email(str(x))).alias(column)
+                    pl.col(column).map_elements(lambda x: privacy_manager.hash_email(str(x)), return_dtype=pl.String).alias(column)
                 ])
         
         return df_pseudonymized
@@ -226,7 +226,7 @@ class DataTransformationService:
         for column in columns:
             if column in df_pseudonymized.columns:
                 df_pseudonymized = df_pseudonymized.with_columns([
-                    pl.col(column).apply(lambda x: privacy_manager.hash_email(str(x))).alias(column)
+                    pl.col(column).map_elements(lambda x: privacy_manager.hash_email(str(x)), return_dtype=pl.String).alias(column)
                 ])
         
         return df_pseudonymized
@@ -241,18 +241,29 @@ class DataTransformationService:
         ])
     
     def _save_processed_data(self, df: pl.DataFrame, filename_prefix: str) -> None:
-        """Salva i dati processati in formato Parquet."""
+        """
+        Salva i dati processati in formato Parquet.
+        ✅ FIX: Sovrascrive sempre lo stesso file e cancella i vecchi per evitare duplicazioni
+        """
         
         # Crea la directory se non esiste
         self.processed_dir.mkdir(parents=True, exist_ok=True)
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{filename_prefix}_{timestamp}.parquet"
+        # ✅ Sovrascrittura: Nome file FISSO senza timestamp, sempre lo stesso
+        filename = f"{filename_prefix}.parquet"
         filepath = self.processed_dir / filename
         
-        # Salva in formato Parquet
-        df.write_parquet(str(filepath))
-        logger.info(f"Dati processati salvati in: {filepath}")
+        # ✅ Pulizia: Cancella tutti i vecchi file con lo stesso prefisso (vecchie versioni con timestamp)
+        for old_file in self.processed_dir.glob(f"{filename_prefix}_*.parquet"):
+            try:
+                old_file.unlink()
+                logger.debug(f"Rimosso file vecchio: {old_file.name}")
+            except Exception as e:
+                logger.warning(f"Impossibile cancellare file vecchio {old_file.name}: {e}")
+        
+        # Salva sovrascrivendo se esistente
+        df.write_parquet(str(filepath), use_pyarrow=False)
+        logger.info(f"Dati processati salvati in: {filepath} (Sovrascrittura abilitata)")
 
 # Creazione istanza globale
 data_transformation_service = DataTransformationService()

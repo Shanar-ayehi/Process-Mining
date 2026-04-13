@@ -23,7 +23,7 @@ code {
 /* Custom styles for Process Mining UI */
 .process-mining-app {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-color: #F8FAFC; /* Slate 50 */
 }
 
 .app-container {

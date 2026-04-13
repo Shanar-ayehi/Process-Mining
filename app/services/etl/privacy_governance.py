@@ -170,10 +170,16 @@ class PrivacyGovernanceService:
         
         df_anonymized = df.clone()
         
+        # Whitelist attori di sistema che NON devono essere anonimizzati
+        SYSTEM_ACTORS = ["WORKFLOW_AUTOMATION", "APPROVAL_MANAGER"]
+        
         for column in sensitive_columns:
             if column in df_anonymized.columns:
                 df_anonymized = df_anonymized.with_columns([
-                    pl.col(column).apply(lambda x: privacy_manager.hash_email(str(x))).alias(column)
+                    pl.col(column).map_elements(
+                        lambda x: str(x) if str(x) in SYSTEM_ACTORS else privacy_manager.hash_email(str(x)),
+                        return_dtype=pl.String
+                    ).alias(column)
                 ])
         
         # Registra l'operazione di anonimizzazione

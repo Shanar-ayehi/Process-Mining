@@ -351,7 +351,7 @@ class ConformanceService:
         # Analisi per risorsa
         if 'resource' in df.columns:
             resource_deviations = df.filter(pl.col('case_id').is_in(deviation_patterns['deviating_cases'])) \
-                                   .groupby('resource').count()
+                                   .group_by('resource').count()
             
             for resource, count in resource_deviations.to_pandas().itertuples(index=False):
                 root_causes.append({
@@ -364,7 +364,7 @@ class ConformanceService:
         # Analisi per attività
         if 'activity' in df.columns:
             activity_deviations = df.filter(pl.col('case_id').is_in(deviation_patterns['deviating_cases'])) \
-                                   .groupby('activity').count()
+                                   .group_by('activity').count()
             
             for activity, count in activity_deviations.to_pandas().itertuples(index=False):
                 root_causes.append({
