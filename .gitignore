@@ -203,6 +203,7 @@ cython_debug/
 
 # Datas
 data/
+logs/
 
 # Cache Python
 *__pycache__/

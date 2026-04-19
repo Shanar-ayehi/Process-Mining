@@ -24,6 +24,7 @@ import {
   IconButton,
   Tooltip,
   Chip,
+  Button,
 } from '@mui/material';
 import {
   FilterList as FilterIcon,
@@ -34,6 +35,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
 import CustomNode from './CustomNode';
+import CustomEdge from './CustomEdge';
 import WhatIfSidebar from './WhatIfSidebar';
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -63,6 +65,15 @@ interface GraphEdge {
   source: string;
   target: string;
   type: string;
+  weight: number;
+  label?: string;
+  absolute_frequency: number;
+  is_bottleneck: boolean;
+}
+
+interface CustomEdgeData extends Record<string, unknown> {
+  absoluteFrequency: number;
+  isBottleneck: boolean;
   weight: number;
   label?: string;
 }
@@ -145,12 +156,14 @@ const ProcessAnalysis: React.FC = () => {
 
   // State
   const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [simulatedGraphData, setSimulatedGraphData] = useState<GraphData | null>(null);
   const [nodePerformance, setNodePerformance] = useState<NodePerformance>({});
+  const [simulatedNodePerformance, setSimulatedNodePerformance] = useState<NodePerformance>({});
+  const [activeViewMode, setActiveViewMode] = useState<'original' | 'simulated'>('original');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [frequencyFilter, setFrequencyFilter] = useState(0);
-  const [maxFrequency, setMaxFrequency] = useState(100);
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [showIsolatedNodes, setShowIsolatedNodes] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewType, setViewType] = useState<'performance' | 'frequency'>('performance');
   const [algorithm, setAlgorithm] = useState<'dfg_performance' | 'alpha' | 'heuristic' | 'inductive'>('dfg_performance');
@@ -208,13 +221,6 @@ const ProcessAnalysis: React.FC = () => {
       }
       setNodePerformance(performance);
 
-      // Calculate max frequency for filter
-      if (data.graph_data?.edges) {
-        const frequencies = data.graph_data.edges
-          .filter((e: GraphEdge) => e.type === 'frequency')
-          .map((e: GraphEdge) => e.weight);
-        setMaxFrequency(Math.max(...frequencies, 100));
-      }
     } catch (err: any) {
       console.error('Errore nel caricamento del grafo:', err);
       setError(err.response?.data?.detail || 'Errore nel caricamento dei dati');
@@ -227,32 +233,62 @@ const ProcessAnalysis: React.FC = () => {
     fetchGraphData();
   }, [id, algorithm, fetchGraphData]);
 
-  // Filter edges by frequency
+  // ✅ Dati attivi in base alla modalità di visualizzazione
+  const activeGraphData = useMemo(() => {
+    return activeViewMode === 'simulated' && simulatedGraphData ? simulatedGraphData : graphData;
+  }, [activeViewMode, simulatedGraphData, graphData]);
+
+  const activeNodePerformance = useMemo(() => {
+    return activeViewMode === 'simulated' ? simulatedNodePerformance : nodePerformance;
+  }, [activeViewMode, simulatedNodePerformance, nodePerformance]);
+
+  // Nessun filtro: tutti gli archi sono sempre visibili
   const filteredEdges = useMemo(() => {
-    if (!graphData?.edges) return [];
-    return graphData.edges.filter((edge) => edge.weight >= frequencyFilter);
-  }, [graphData?.edges, frequencyFilter]);
+    return activeGraphData?.edges || [];
+  }, [activeGraphData?.edges]);
+
+  // Calcola nodi connessi dopo filtro archi
+  const connectedNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    filteredEdges.forEach(edge => {
+      ids.add(edge.source);
+      ids.add(edge.target);
+    });
+    return ids;
+  }, [filteredEdges]);
 
   // Convert to React Flow nodes
   const rfNodes: Node[] = useMemo(() => {
-    if (!graphData?.nodes) return [];
+    if (!activeGraphData?.nodes) return [];
 
-    return graphData.nodes.map((node) => ({
+    return activeGraphData.nodes.map((node) => ({
       id: node.id,
       type: 'custom',
       position: { x: 0, y: 0 },
       data: {
         label: node.label,
         type: node.type,
-        avgTime: nodePerformance[node.id],
+        avgTime: activeNodePerformance[node.id],
+        is_automated: node.is_automated,
         automationRules: node.automation_rules || [],
-        onClick: () => {
-          setSelectedNode(node);
-          setSidebarOpen(true);
-        },
+        isIsolated: !connectedNodeIds.has(node.id),
+        onClick: () => { 
+            setSelectedNode({
+              ...node,
+              avgTime: activeNodePerformance[node.id],
+              automationRules: node.automation_rules || []
+            }); 
+            setSidebarOpen(true); 
+          },
       },
-    }));
-  }, [graphData?.nodes, nodePerformance]);
+      // Opacità ridotta per nodi isolati
+      style: {
+        opacity: connectedNodeIds.has(node.id) ? 1 : (showIsolatedNodes ? 0.2 : 0),
+        pointerEvents: connectedNodeIds.has(node.id) ? 'auto' : 'none',
+        transition: 'opacity 0.3s ease'
+      } as React.CSSProperties
+    })).filter(node => showIsolatedNodes || connectedNodeIds.has(node.id));
+  }, [activeGraphData?.nodes, activeNodePerformance, connectedNodeIds, showIsolatedNodes]);
 
   // Convert to React Flow edges
   const rfEdges: Edge[] = useMemo(() => {
@@ -262,12 +298,20 @@ const ProcessAnalysis: React.FC = () => {
       target: edge.target,
       label: edge.label,
       animated: edge.type === 'performance',
+      type: 'custom',
+      data: {
+        absoluteFrequency: edge.absolute_frequency,
+        isBottleneck: edge.is_bottleneck,
+        weight: edge.weight,
+        label: edge.label
+      } as CustomEdgeData,
       style: {
-        strokeWidth: Math.max(1, Math.min(edge.weight / 10, 5)),
-        stroke: edge.type === 'performance' ? '#9c27b0' : '#2196f3',
+        strokeWidth: Math.max(1, Math.min(edge.absolute_frequency / 10, 5)),
+        stroke: edge.is_bottleneck ? '#d32f2f' : (edge.type === 'performance' ? '#1976d2' : '#2196f3'),
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
+        color: edge.is_bottleneck ? '#d32f2f' : '#1976d2'
       },
     }));
   }, [filteredEdges]);
@@ -280,6 +324,11 @@ const ProcessAnalysis: React.FC = () => {
       setEdges(layoutedEdges);
     }
   }, [rfNodes, rfEdges, setNodes, setEdges]);
+
+// Edge types for React Flow
+const edgeTypes = {
+  custom: CustomEdge,
+};
 
   // Node types for React Flow
   const nodeTypes = useMemo(
@@ -299,13 +348,47 @@ const ProcessAnalysis: React.FC = () => {
         seed: 42,
       });
 
-      console.log('Simulazione avviata:', response.data);
+      console.log('✅ Simulazione completata:', response.data);
       return response.data;
     } catch (err: any) {
       console.error('Errore simulazione:', err);
       throw new Error(err.response?.data?.detail || 'Errore durante la simulazione');
     }
   };
+
+  // ✅ Callback completamento simulazione What-If
+  const handleSimulationComplete = useCallback((result: any) => {
+    console.log('✅ RISULTATO API SIMULAZIONE:', result);
+    
+    // ✅ ✅ ✅ SOLUZIONE DEFINITIVA: il backend restituisce ARRAY
+    const graph = Array.isArray(result) ? result[0] : result.graph?.graph_data || result.graph || result;
+
+    console.log('✅ GRAFO ESTRATTO:', graph);
+    
+    if (graph && graph.nodes && graph.edges) {
+      console.log('✅ GRAFO VALIDO:', graph.nodes.length, 'nodi', graph.edges.length, 'archi');
+      
+      // Salva con nuovo riferimento per forzare re-render
+      setSimulatedGraphData({
+        nodes: [...graph.nodes],
+        edges: [...graph.edges]
+      });
+      
+      // Switch automatico sulla vista simulata
+      setActiveViewMode('simulated');
+      
+      console.log('✅ STATO AGGIORNATO CON SUCCESSO');
+    } else {
+      console.log('❌ STRUTTURA GRAFO NON VALIDA', result);
+    }
+  }, []);
+
+  // ✅ Reset della modalità What-If
+  const handleResetSimulation = useCallback(() => {
+    setSimulatedGraphData(null);
+    setSimulatedNodePerformance({});
+    setActiveViewMode('original');
+  }, []);
 
   // Handle node click on canvas background (close sidebar)
   const handlePaneClick = useCallback(() => {
@@ -376,24 +459,6 @@ const ProcessAnalysis: React.FC = () => {
             </Typography>
           </Box>
 
-          {/* Frequency Filter */}
-          <Box display="flex" alignItems="center" gap={2} minWidth={300}>
-            <FilterIcon color="action" />
-            <Box flex={1}>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
-                Filtro Frequenza Minima: {frequencyFilter}
-              </Typography>
-              <Slider
-                value={frequencyFilter}
-                onChange={(_, value) => setFrequencyFilter(value as number)}
-                min={0}
-                max={maxFrequency}
-                step={1}
-                valueLabelDisplay="auto"
-                size="small"
-              />
-            </Box>
-          </Box>
 
           {/* Stats Chips */}
           <Box display="flex" gap={1}>
@@ -465,6 +530,38 @@ const ProcessAnalysis: React.FC = () => {
               <RefreshIcon />
             </IconButton>
           </Tooltip>
+
+          {/* ✅ Toggle What-If Comparison View */}
+          {simulatedGraphData && (
+            <Box display="flex" alignItems="center" gap={1} ml={2}>
+              <Chip 
+                label={activeViewMode === 'original' ? '🔵 Processo Originale' : '🟢 Simulazione What-If'}
+                color={activeViewMode === 'original' ? 'primary' : 'success'}
+                sx={{ fontWeight: 'bold' }}
+              />
+              <Button
+                variant={activeViewMode === 'original' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setActiveViewMode('original')}
+              >
+                Originale
+              </Button>
+              <Button
+                variant={activeViewMode === 'simulated' ? 'contained' : 'outlined'}
+                size="small"
+                color="success"
+                onClick={() => setActiveViewMode('simulated')}
+              >
+                Simulato
+              </Button>
+              <Tooltip title="Chiudi simulazione e torna allo stato originale">
+                <IconButton onClick={handleResetSimulation} color="error" size="small">
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+
         </Box>
       </Paper>
       )}
@@ -476,6 +573,7 @@ const ProcessAnalysis: React.FC = () => {
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           connectionMode={ConnectionMode.Loose}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -531,6 +629,7 @@ const ProcessAnalysis: React.FC = () => {
           setSelectedNode(null);
         }}
         onSimulate={handleSimulate}
+        onSimulationComplete={handleSimulationComplete}
       />
 
       {/* Varianti Drawer */}

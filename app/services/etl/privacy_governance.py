@@ -177,7 +177,7 @@ class PrivacyGovernanceService:
             if column in df_anonymized.columns:
                 df_anonymized = df_anonymized.with_columns([
                     pl.col(column).map_elements(
-                        lambda x: str(x) if str(x) in SYSTEM_ACTORS else privacy_manager.hash_email(str(x)),
+                        lambda x: str(x) if 'AUTOMATION' in str(x).upper() or 'MANAGER' in str(x).upper() else privacy_manager.hash_email(str(x)),
                         return_dtype=pl.String
                     ).alias(column)
                 ])

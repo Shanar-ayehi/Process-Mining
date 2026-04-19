@@ -16,6 +16,7 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -45,6 +46,7 @@ interface NodeInfo {
   label: string;
   type: 'start' | 'end' | 'normal';
   avgTime?: number;
+  is_automated?: boolean;
   automationRules?: AutomationRule[];
 }
 
@@ -52,7 +54,8 @@ interface WhatIfSidebarProps {
   open: boolean;
   node: NodeInfo | null;
   onClose: () => void;
-  onSimulate: (modifications: Record<string, any>) => Promise<void>;
+  onSimulate: (modifications: Record<string, any>) => Promise<any>;
+  onSimulationComplete?: (result: any) => void;
 }
 
 const WhatIfSidebar: React.FC<WhatIfSidebarProps> = ({
@@ -60,6 +63,7 @@ const WhatIfSidebar: React.FC<WhatIfSidebarProps> = ({
   node,
   onClose,
   onSimulate,
+  onSimulationComplete
 }) => {
   const [timeMultiplier, setTimeMultiplier] = useState(1.0);
   const [disabledAutomations, setDisabledAutomations] = useState<Set<string>>(new Set());
@@ -67,6 +71,7 @@ const WhatIfSidebar: React.FC<WhatIfSidebarProps> = ({
   const [simulating, setSimulating] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [simulationResult, setSimulationResult] = useState<any>(null);
+  const [automationDisabled, setAutomationDisabled] = useState(false);
 
   // Reset state when node changes
   useEffect(() => {
@@ -76,7 +81,7 @@ const WhatIfSidebar: React.FC<WhatIfSidebarProps> = ({
       setOverrideDelay(null);
       setSimulationResult(null);
     }
-  }, [node?.id]);
+  }, [node?.id, onSimulationComplete]);
 
   const handleToggleAutomation = (workflowId: string) => {
     setDisabledAutomations((prev) => {
@@ -109,30 +114,54 @@ const WhatIfSidebar: React.FC<WhatIfSidebarProps> = ({
 
     try {
       const modifications: Record<string, any> = {
-        [node.label]: {
+        [node.id]: {
           time_multiplier: timeMultiplier,
+          disable_automation: disabledAutomations.size > 0 || automationDisabled,
         },
       };
 
-      if (disabledAutomations.size > 0) {
-        modifications[node.label].disable_automation = true;
-      }
-
       if (overrideDelay !== null) {
-        modifications[node.label].override_automation_delay = overrideDelay;
+        modifications[node.id].override_automation_delay = overrideDelay;
       }
 
-      await onSimulate(modifications);
+      const result = await onSimulate(modifications);
+      console.log('✅ ✅ ✅ RISULTATO SIMULAZIONE COMPLETO:', result);
 
       setSimulationProgress(100);
+      
+      // ✅ FIX ERRORE VUOTO: aggiungo messaggio leggibile dal risultato
       setSimulationResult({
         success: true,
-        message: 'Simulazione completata con successo!',
+        message: `✅ Simulazione completata: ${result.num_cases} casi, ${result.num_events} eventi generati. Tempo medio ciclo: ${(result.metrics?.avg_cycle_time / 86400)?.toFixed(1) || 'N/D'} giorni`,
+        data: result
       });
-    } catch (error) {
+
+      // ✅ ✅ ✅ FORZO CHIAMATA CALLBACK SENZA NESSUNA CONDIZIONE
+      console.log('✅ WhatIfSidebar: Chiamo onSimulationComplete con risultato:', result);
+      
+      // @ts-ignore
+      onSimulationComplete && onSimulationComplete(result);
+      
+      console.log('✅ WhatIfSidebar: Callback eseguito');
+    } catch (error: any) {
+      console.error('❌ Errore simulazione COMPLETO:', error);
+
+      let errorMessage = 'Errore durante la simulazione';
+
+      if (error.response) {
+        // ✅ Risposta ricevuta dal server (codice 4xx / 5xx)
+        errorMessage = error.response.data?.detail || error.response.statusText || errorMessage;
+      } else if (error.request) {
+        // ✅ NESSUNA RISPOSTA (CORS, rete caduta, timeout, backend non avviato)
+        errorMessage = 'Impossibile contattare il server. Verifica che il backend sia avviato e che CORS sia configurato correttamente.';
+      } else {
+        // ✅ Errore durante la configurazione della richiesta
+        errorMessage = error.message || errorMessage;
+      }
+      
       setSimulationResult({
         success: false,
-        message: 'Errore durante la simulazione',
+        message: errorMessage,
       });
     } finally {
       clearInterval(progressInterval);
@@ -189,7 +218,7 @@ const WhatIfSidebar: React.FC<WhatIfSidebarProps> = ({
             <Box display="flex" alignItems="center" gap={1}>
               <ScheduleIcon fontSize="small" color="action" />
               <Typography variant="body2" color="text.secondary">
-                Tempo medio: {node.avgTime.toFixed(1)} giorni
+                Tempo medio: {(node.avgTime / 86400).toFixed(1)} giorni
               </Typography>
             </Box>
           )}
@@ -198,12 +227,24 @@ const WhatIfSidebar: React.FC<WhatIfSidebarProps> = ({
         <Divider sx={{ mb: 3 }} />
 
         {/* Automazioni */}
-        {hasAutomations && (
+        {node.is_automated === true && (
           <Box mb={3}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               <BoltIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
               Automazioni HubSpot
             </Typography>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={automationDisabled}
+                  onChange={(e) => setAutomationDisabled(e.target.checked)}
+                  color="secondary"
+                />
+              }
+              label="Disattiva tutte le automazioni"
+              sx={{ mb: 2, width: '100%' }}
+            />
             <List dense>
               {node.automationRules!.map((rule) => (
                 <ListItem

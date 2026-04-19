@@ -7,20 +7,32 @@ interface CustomNodeData {
   label: string;
   type: 'start' | 'end' | 'normal';
   avgTime?: number;
+  is_automated?: boolean;
   automationRules?: Array<{
     workflow_id: string;
     workflow_name: string;
     trigger_type: string;
     actions: Array<{ type: string; delay_days: number }>;
   }>;
+  isIsolated?: boolean;
   onClick?: () => void;
 }
 
 const CustomNode: React.FC<NodeProps> = ({ data, selected }) => {
   const nodeData = data as unknown as CustomNodeData;
   const hasAutomations = nodeData.automationRules && nodeData.automationRules.length > 0;
+  const isAutomated = nodeData.is_automated || hasAutomations;
+
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return "0 sec";
+    if (seconds >= 86400) return `${(seconds / 86400).toFixed(1)} giorni`;
+    if (seconds >= 3600) return `${(seconds / 3600).toFixed(1)} ore`;
+    if (seconds >= 60) return `${(seconds / 60).toFixed(1)} min`;
+    return `${seconds.toFixed(1)} sec`;
+  };
 
   const getNodeColor = () => {
+    if (isAutomated) return '#9c27b0'; // Priorità massima: Purple per automazioni
     switch (nodeData.type) {
       case 'start': return '#4caf50';
       case 'end': return '#f44336';
@@ -30,7 +42,7 @@ const CustomNode: React.FC<NodeProps> = ({ data, selected }) => {
 
   const getNodeBorder = () => {
     if (selected) return '3px solid #ff9800';
-    if (hasAutomations) return '2px solid #9c27b0';
+    if (isAutomated) return '2px solid #9c27b0';
     return '1px solid #e0e0e0';
   };
 
@@ -87,7 +99,7 @@ const CustomNode: React.FC<NodeProps> = ({ data, selected }) => {
             }}
           />
           <Chip
-            label={nodeData.type.toUpperCase()}
+            label={isAutomated ? 'AUTOMATION' : nodeData.type.toUpperCase()}
             size="small"
             sx={{
               height: 18,
@@ -106,7 +118,7 @@ const CustomNode: React.FC<NodeProps> = ({ data, selected }) => {
         {/* Tempo Medio */}
         {nodeData.avgTime !== undefined && (
           <Typography variant="caption" color="text.secondary">
-            ⏱ {nodeData.avgTime.toFixed(1)} giorni (media)
+            ⏱ {formatDuration(nodeData.avgTime)} (media)
           </Typography>
         )}
 

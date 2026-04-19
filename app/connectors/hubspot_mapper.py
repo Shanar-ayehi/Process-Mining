@@ -44,9 +44,21 @@ class HubSpotMapper:
         # Ordina la cronologia per timestamp (supporta stringhe ISO 8601 e numeri)
         def sort_key(record):
             ts = record.get(self.data_structure.timestamp_field, "0")
-            return str(ts)
+            try:
+                # Se è numerico (millisecondi HubSpot) converti direttamente
+                return float(ts)
+            except (ValueError, TypeError):
+                # Se è stringa ISO parsala a timestamp numerico
+                try:
+                    dt = datetime.fromisoformat(str(ts).replace('Z', '+00:00'))
+                    return dt.timestamp() * 1000
+                except:
+                    # Fallback: restituisci valore minimo per non rompere l'ordinamento
+                    return 0.0
         
         stage_history.sort(key=sort_key)
+        
+        logger.info(f"✅ FIX ORDINAMENTO TIMESTAMP ATTIVO! Ordinati {len(stage_history)} eventi per deal {deal_id}")
         
         for record in stage_history:
             # ✅ FIX: Mappatura automatica fasi - usa direttamente il valore originale

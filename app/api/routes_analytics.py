@@ -414,7 +414,7 @@ async def run_simulation(request: SimulationRequestSchema):
 
         # 5. Esegui simulazione
         simulation_result = simulation_service.simulate_process(
-            dfg=dfg_result['performance_dfg'],
+            dfg=dfg_result['frequency_dfg'],
             performance_dfg=dfg_result['performance_dfg'],
             start_activities=dfg_result['start_activities'],
             end_activities=dfg_result['end_activities'],
@@ -423,11 +423,26 @@ async def run_simulation(request: SimulationRequestSchema):
             graph_nodes=dfg_result['graph_data']['nodes']
         )
 
-        # 6. ✅ Sanifica risultato prima di restituire per evitare errori JSON
+        # 6. ✅ Calcola nuovo DFG direttamente sui casi simulati
+        simulated_event_log_df = pl.DataFrame(simulation_result['simulated_cases'])
+        
+        # Rigenera Performance DFG sui nuovi dati
+        new_dfg_result = discovery_service.discover_performance_dfg(simulated_event_log_df, workflows=workflows)
+        
+        # 7. Aggiungi grafo completo al risultato
+        simulation_result['graph'] = {
+            'graph_data': new_dfg_result['graph_data'],
+            'frequency_dfg': new_dfg_result['frequency_dfg'],
+            'performance_dfg': new_dfg_result['performance_dfg'],
+            'start_activities': new_dfg_result['start_activities'],
+            'end_activities': new_dfg_result['end_activities']
+        }
+
+        # 8. ✅ Sanifica risultato prima di restituire per evitare errori JSON
         from app.api.routes_mining import sanitize_for_json
         simulation_result = sanitize_for_json(simulation_result)
 
-        logger.info(f"Simulazione completata con successo per portal_id={request.portal_id}")
+        logger.info(f"Simulazione completata con successo per portal_id={request.portal_id}, grafo generato con {len(new_dfg_result['graph_data']['nodes'])} nodi, {len(new_dfg_result['graph_data']['edges'])} archi")
 
         return simulation_result
         

@@ -41,6 +41,10 @@ class SimulationService:
         Returns:
             Dizionario con chiavi source e valori lista di (target, probability)
         """
+        # ✅ FIX PM4Py: gestisci anche il caso in cui è restituito come tupla (primo elemento)
+        if isinstance(dfg, tuple):
+            dfg = dfg[0]
+            
         # Raggruppa per source
         source_totals = defaultdict(int)
         transitions = defaultdict(list)
@@ -61,41 +65,62 @@ class SimulationService:
     
     def _apply_modifications_to_performance(
         self,
-        performance_dfg: Dict[Tuple[str, str], Dict[str, float]],
+        performance_dfg: Dict[Tuple[str, str], Any],
         modifications: Optional[Dict[str, Dict[str, float]]]
-    ) -> Dict[Tuple[str, str], Dict[str, float]]:
+    ) -> Dict[Tuple[str, str], Any]:
         """
         Applica le modifiche dell'utente alle performance.
         
+        ✅ VERSIONE ROBUSTA: gestisce automaticamente sia i vecchi dizionari PM4Py
+        che il nuovo formato nativo Pandas con valori float diretti.
+        
         Args:
-            performance_dfg: Performance originali
+            performance_dfg: Performance originali (dict o float)
             modifications: Modifiche dell'utente (es. {"Activity": {"time_multiplier": 0.8}})
             
         Returns:
-            Performance modificate
+            Performance modificate nello stesso formato di input
         """
         if not modifications:
             return performance_dfg
         
         modified_performance = {}
         for (source, target), perf in performance_dfg.items():
-            modified_perf = perf.copy()
             
-            # Applica modifiche al source
-            if source in modifications:
-                mod = modifications[source]
-                if "time_multiplier" in mod:
-                    modified_perf["average"] = perf.get("average", 0) * mod["time_multiplier"]
-                    modified_perf["minimum"] = perf.get("minimum", 0) * mod["time_multiplier"]
-                    modified_perf["maximum"] = perf.get("maximum", 0) * mod["time_multiplier"]
-            
-            # Applica modifiche al target
-            if target in modifications:
-                mod = modifications[target]
-                if "time_multiplier" in mod:
-                    modified_perf["average"] = modified_perf.get("average", 0) * mod["time_multiplier"]
-                    modified_perf["minimum"] = modified_perf.get("minimum", 0) * mod["time_multiplier"]
-                    modified_perf["maximum"] = modified_perf.get("maximum", 0) * mod["time_multiplier"]
+            # ✅ FIX: Gestisci ENTRAMBI i formati
+            if isinstance(perf, dict):
+                # Formato vecchio PM4Py: dizionario con average/minimum/maximum
+                modified_perf = perf.copy()
+                avg_value = perf.get("average", 0)
+                
+                if source in modifications:
+                    mod = modifications[source]
+                    if "time_multiplier" in mod:
+                        modified_perf["average"] = avg_value * mod["time_multiplier"]
+                        modified_perf["minimum"] = perf.get("minimum", 0) * mod["time_multiplier"]
+                        modified_perf["maximum"] = perf.get("maximum", 0) * mod["time_multiplier"]
+                
+                if target in modifications:
+                    mod = modifications[target]
+                    if "time_multiplier" in mod:
+                        modified_perf["average"] = modified_perf.get("average", 0) * mod["time_multiplier"]
+                        modified_perf["minimum"] = modified_perf.get("minimum", 0) * mod["time_multiplier"]
+                        modified_perf["maximum"] = modified_perf.get("maximum", 0) * mod["time_multiplier"]
+            else:
+                # ✅ Formato NUOVO Pandas: valore float diretto
+                avg_value = float(perf) if perf is not None else 0.0
+                
+                if source in modifications:
+                    mod = modifications[source]
+                    if "time_multiplier" in mod:
+                        avg_value *= mod["time_multiplier"]
+                
+                if target in modifications:
+                    mod = modifications[target]
+                    if "time_multiplier" in mod:
+                        avg_value *= mod["time_multiplier"]
+                
+                modified_perf = avg_value
             
             modified_performance[(source, target)] = modified_perf
         
@@ -199,6 +224,7 @@ class SimulationService:
         if modifications and node_label in modifications:
             mod = modifications[node_label]
             if mod.get("disable_automation", False):
+                logger.info(f"✅ TOGGLE AUTOMAZIONI ATTIVO! Automazioni disabilitate per nodo: {node_label}")
                 return 0.0
         
         # Calcola delay totale delle automazioni
@@ -295,10 +321,17 @@ class SimulationService:
             # Estrai durata dalla performance
             edge_key = (current_activity, next_activity)
             if edge_key in performance_dfg:
-                duration = performance_dfg[edge_key].get("average", 1.0)
+                val = performance_dfg[edge_key]
+                # ✅ Gestisci sia dizionario PM4Py che float nativo Pandas
+                duration = val.get("average", 1.0) if isinstance(val, dict) else float(val)
             else:
                 # Fallback: usa durata media di tutte le transizioni
-                all_avg = [p.get("average", 1.0) for p in performance_dfg.values()]
+                all_avg = []
+                for p in performance_dfg.values():
+                    if isinstance(p, dict):
+                        all_avg.append(p.get("average", 1.0))
+                    else:
+                        all_avg.append(float(p))
                 duration = sum(all_avg) / len(all_avg) if all_avg else 1.0
             
             # Assicurati che la durata sia positiva
@@ -322,31 +355,79 @@ class SimulationService:
     
     def simulate_process(
         self,
-        dfg: Dict[Tuple[str, str], int],
-        performance_dfg: Dict[Tuple[str, str], Dict[str, float]],
-        start_activities: Dict[str, int],
-        end_activities: Dict[str, int],
+        dfg: Dict[Tuple[str, str], int] | List[Dict[str, Any]],
+        performance_dfg: Dict[Tuple[str, str], Dict[str, float]] | List[Dict[str, Any]],
+        start_activities: Dict[str, int] | List[Dict[str, Any]],
+        end_activities: Dict[str, int] | List[Dict[str, Any]],
         num_cases: int = 100,
         modifications: Optional[Dict[str, Dict[str, float]]] = None,
         graph_nodes: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Esegue la simulazione What-If Analysis.
-        
-        Args:
-            dfg: DFG con frequenze di transizione
-            performance_dfg: Performance con average/minimum/maximum
-            start_activities: Attività iniziali con frequenze
-            end_activities: Attività finali con frequenze
-            num_cases: Numero di casi da simulare
-            modifications: Modifiche dell'utente (es. {"Activity": {"time_multiplier": 0.8, "target_prob": 0.5, "disable_automation": True}})
-            graph_nodes: Lista nodi del grafo con automation_rules
-            
-        Returns:
-            Dizionario con log simulato e metriche
         """
         logger.info(f"Avvio simulazione What-If: {num_cases} casi")
         
+        # --- NORMALIZZAZIONE INPUT (Gestione Pydantic/JSON lists) ---
+        
+        # 1. Normalizza start_activities
+        if isinstance(start_activities, list):
+            start_dict = {}
+            for item in start_activities:
+                if isinstance(item, dict):
+                    # Cerca chiavi e valori nei formati noti
+                    k = item.get("activity") or item.get("node") or item.get("id") or next(iter(item.keys()), None)
+                    v = item.get("count") or item.get("weight") or item.get("frequency") or 1
+                    if k: start_dict[k] = v
+                elif isinstance(item, str):
+                    start_dict[item] = 1
+            start_activities = start_dict
+            
+        # 2. Normalizza end_activities
+        if isinstance(end_activities, list):
+            end_dict = {}
+            for item in end_activities:
+                if isinstance(item, dict):
+                    k = item.get("activity") or item.get("node") or item.get("id") or next(iter(item.keys()), None)
+                    v = item.get("count") or item.get("weight") or item.get("frequency") or 1
+                    if k: end_dict[k] = v
+                elif isinstance(item, str):
+                    end_dict[item] = 1
+            end_activities = end_dict
+            
+        # 3. Normalizza DFG (Frequenze)
+        if isinstance(dfg, list):
+            dfg_dict = {}
+            for edge in dfg:
+                if isinstance(edge, dict):
+                    src = edge.get("source")
+                    tgt = edge.get("target")
+                    val = edge.get("weight") or edge.get("frequency") or 1
+                    if src and tgt:
+                        dfg_dict[(src, tgt)] = val
+            dfg = dfg_dict
+            
+        # 4. Normalizza Performance DFG
+        if isinstance(performance_dfg, list):
+            perf_dict = {}
+            for edge in performance_dfg:
+                if isinstance(edge, dict):
+                    src = edge.get("source")
+                    tgt = edge.get("target")
+                    if src and tgt:
+                        perf_data = edge.get("performance", {})
+                        if not perf_data:
+                            # Fallback flat mapping
+                            perf_data = {
+                                "average": edge.get("average", edge.get("weight", 1.0)),
+                                "minimum": edge.get("minimum", edge.get("weight", 1.0)),
+                                "maximum": edge.get("maximum", edge.get("weight", 1.0))
+                            }
+                        perf_dict[(src, tgt)] = perf_data
+            performance_dfg = perf_dict
+
+        # --- FINE NORMALIZZAZIONE ---
+
         # Inizializza random generator
         rng = random.Random(self.seed)
         
@@ -446,7 +527,12 @@ class SimulationService:
         # Calcola tempo originale medio
         original_avg = 0
         if original_performance:
-            original_times = [p.get("average", 0) for p in original_performance.values()]
+            original_times = []
+            for p in original_performance.values():
+                if isinstance(p, dict):
+                    original_times.append(p.get("average", 0))
+                else:
+                    original_times.append(float(p))
             if original_times:
                 original_avg = sum(original_times) / len(original_times)
         

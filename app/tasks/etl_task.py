@@ -132,6 +132,63 @@ def transform_deals_task(self, extraction_results: Any, portal_id: str = "defaul
         handle_task_error(self.request.id, e)
         return create_task_result(success=False, error=str(e))
 
+
+@etl_task()
+def transform_complex_deals_task(self, extraction_results: Any, portal_id: str = "default") -> Dict[str, Any]:
+    portal_id = "complex_dataset" # ID UNIVOCO PER IL TERZO PROCESSO
+    """
+    Task per la trasformazione deal COMPLESSI in event log.
+    
+    Args:
+        extraction_results: Risultati dall'estrazione (ignorato in modalità locale)
+        portal_id: ID del portale HubSpot
+        
+    Returns:
+        Dizionario con risultati trasformazione
+    """
+    try:
+        logger.info("🟢 CARICAMENTO DATASET COMPLESSO AVANZATO")
+        
+        import json
+        from pathlib import Path
+        
+        # Leggi file mock complesso
+        mock_file_path = Path(__file__).parent.parent / "data" / "raw" / "mock_deals_complex.json"
+        
+        with open(mock_file_path, 'r', encoding='utf-8') as f:
+            actual_deals = json.load(f)
+        
+        logger.info(f"✅ Caricati {len(actual_deals)} deal COMPLESSI dal file Mock locale")
+        
+        # Passa i deal puliti al servizio di trasformazione (stesso motore, funziona automaticamente)
+        event_log_df = data_transformation_service.transform_hubspot_deals_to_event_log(actual_deals)
+        
+        # ✅ SALVA NEL DATABASE DUCKDB con ID UNIVOCO
+        from app.core.database import save_event_log
+        save_event_log(event_log_df, portal_id)
+        
+        # ✅ SALVA ANCHE FILE PARQUET NELLA CARTELLA PROCESSED
+        data_transformation_service._save_processed_data(event_log_df, portal_id)
+        
+        logger.info(f"✅ Event log COMPLESSO salvato correttamente nel database per portal_id: {portal_id}")
+        
+        result = create_task_result(
+            success=True,
+            data={
+                'events_count': len(event_log_df),
+                'cases_count': len(event_log_df['case_id'].unique()) if 'case_id' in event_log_df.columns else 0,
+                'metadata': create_task_metadata('transform_complex_deals', events_count=len(event_log_df))
+            }
+        )
+        
+        logger.info(f"Task trasformazione deal COMPLESSI completato: {len(event_log_df)} eventi")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Errore nel task trasformazione deal COMPLESSI: {e}")
+        handle_task_error(self.request.id, e)
+        return create_task_result(success=False, error=str(e))
+
 @etl_task()
 def validate_data_quality_task(self, portal_id: str) -> Dict[str, Any]:
     """
@@ -325,7 +382,12 @@ def run_full_etl_pipeline(self, portal_id: str = "default",
             transform_deals_task.s(None, portal_id),
             validate_data_quality_task.si(portal_id=portal_id),
             apply_privacy_governance_task.si(portal_id=portal_id),
-            merge_sources_task.si(portal_id=portal_id)
+            merge_sources_task.si(portal_id=portal_id),
+            
+            # ✅ TERZO PROCESSO: Dataset Complesso
+            transform_complex_deals_task.s(None, "complex_dataset"),
+            validate_data_quality_task.si(portal_id="complex_dataset"),
+            apply_privacy_governance_task.si(portal_id="complex_dataset")
         )
         
         # Esegui pipeline

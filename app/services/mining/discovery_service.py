@@ -7,8 +7,9 @@ if hasattr(os, 'getppid') and os.getppid() == 0:
 import pm4py
 import polars as pl
 import pandas as pd
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Optional, Tuple
 from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 from app.core.logger import get_logger
 from app.core.config import settings
 
@@ -16,6 +17,43 @@ logger = get_logger()
 
 # Tipi per chiavi DFG (tuple di attività)
 DFGKey = Tuple[str, str]
+
+
+class DFGEdge(BaseModel):
+    """Modello Pydantic per validazione archi DFG"""
+    model_config = ConfigDict(frozen=True, extra='forbid')
+    
+    id: str
+    source: str
+    target: str
+    type: str
+    weight: float | int
+    frequency: int | None = None
+    absolute_frequency: int
+    label: str | None = None
+    value_seconds: float | None = None
+    is_bottleneck: bool = False
+    details: dict[str, Any] | None = None
+
+
+class DFGNode(BaseModel):
+    """Modello Pydantic per validazione nodi DFG"""
+    model_config = ConfigDict(frozen=True, extra='allow')
+    
+    id: str
+    label: str
+    type: str
+    is_automated: bool = False
+    automation_rules: list[dict[str, Any]] | None = None
+
+
+class DFGGraph(BaseModel):
+    """Modello Pydantic per l'intero grafo DFG"""
+    model_config = ConfigDict(frozen=True)
+    
+    nodes: list[DFGNode]
+    edges: list[DFGEdge]
+
 
 class DiscoveryService:
     """Servizio per il Process Discovery con PM4Py."""
@@ -97,7 +135,7 @@ class DiscoveryService:
     
     def discover_dfg(self, df: pl.DataFrame, 
                     output_image_path: Optional[str] = None,
-                    workflows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+                    workflows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """
         Scopre il Directly-Follows Graph (DFG) dal DataFrame.
         
@@ -152,7 +190,7 @@ class DiscoveryService:
             logger.error(f"Errore nel Process Discovery: {e}")
             raise
     
-    def discover_alpha_miner(self, df: pl.DataFrame) -> Dict[str, Any]:
+    def discover_alpha_miner(self, df: pl.DataFrame) -> dict[str, Any]:
         """
         Scopre il modello di processo con Alpha Miner.
         
@@ -193,7 +231,7 @@ class DiscoveryService:
             raise
     
     def discover_heuristic_miner(self, df: pl.DataFrame, 
-                               dependency_threshold: float = 0.5) -> Dict[str, Any]:
+                               dependency_threshold: float = 0.5) -> dict[str, Any]:
         """
         Scopre il modello di processo con Heuristic Miner.
         
@@ -237,7 +275,7 @@ class DiscoveryService:
             logger.error(f"Errore in Heuristic Miner: {e}")
             raise
     
-    def discover_inductive_miner(self, df: pl.DataFrame) -> Dict[str, Any]:
+    def discover_inductive_miner(self, df: pl.DataFrame) -> dict[str, Any]:
         """
         Scopre il modello di processo con Inductive Miner.
         
@@ -283,7 +321,7 @@ class DiscoveryService:
             raise
     
     def discover_variants(self, df: pl.DataFrame, 
-                         min_frequency_threshold: float = 0.05) -> Dict[str, Any]:
+                         min_frequency_threshold: float = 0.05) -> dict[str, Any]:
         """
         Scopre le varianti del processo.
         
@@ -345,7 +383,7 @@ class DiscoveryService:
             raise
     
     def discover_performance_dfg(self, df: pl.DataFrame,
-                                workflows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+                                workflows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """
         Scopre il DFG con informazioni di performance.
         
@@ -356,49 +394,139 @@ class DiscoveryService:
         Returns:
             Dizionario con DFG performance e statistiche
         """
-        logger.info("Avvio Performance DFG...")
+        logger.info("Avvio Performance DFG (Pandas Nativo)...")
         
         try:
-            log = self._prepare_event_log(df)
-
-            # ✅ ESTRAZIONE AUTOMAZIONI PRIMA DI CHIAMARE PM4Py (PM4Py cancella le colonne extra)
-            automated_activities = []
-            if 'resource' in df.columns:
-                try:
-                    automated_activities = df.filter(pl.col('resource') == 'WORKFLOW_AUTOMATION')['activity'].unique().to_list()
-                    logger.info(f"Trovate {len(automated_activities)} attività automatizzate WORKFLOW_AUTOMATION")
-                except Exception as e:
-                    logger.warning(f"Impossibile estrarre automazioni: {e}")
-
-            # Calcola DFG con performance
-            dfg, start_activities, end_activities = pm4py.discover_performance_dfg(log)
-
-            # Calcola statistiche
-            stats = self._calculate_performance_statistics(dfg)
+            import pandas as pd
+            import pm4py
             
-            # Converte Performance DFG in formato JSON per il frontend (con mapping workflow)
-            graph_data = self._dfg_to_graph_format(
-                dfg, 
-                start_activities, 
-                end_activities, 
-                is_performance=True, 
-                workflows=workflows,
-                automated_activities=automated_activities
-            )
+            pdf = df.to_pandas()
+            
+            # 1. Parsing Date e Ordinamento ASSOLUTO
+            pdf['timestamp'] = pd.to_datetime(pdf['timestamp'], utc=True, errors='coerce')
+            pdf = pdf.dropna(subset=['case_id', 'timestamp'])
+            pdf = pdf.sort_values(by=['case_id', 'timestamp'], ascending=[True, True])
+            
+            # 2. Calcolo Matematico Nativo (Infallibile, bypassa PM4Py)
+            pdf['next_activity'] = pdf.groupby('case_id')['activity'].shift(-1)
+            pdf['next_timestamp'] = pdf.groupby('case_id')['timestamp'].shift(-1)
+            pdf['duration_sec'] = (pdf['next_timestamp'] - pdf['timestamp']).dt.total_seconds()
+            
+            edges_df = pdf.dropna(subset=['next_activity', 'duration_sec'])
+            perf_dfg = edges_df.groupby(['activity', 'next_activity'])['duration_sec'].mean().to_dict()
+            
+            # 3. Individuazione Automazioni (con Fallback)
+            automated_activities = []
+            if 'resource' in pdf.columns:
+                mask = pdf['resource'].astype(str).str.upper().str.contains('AUTOMATION', na=False)
+                automated_activities = pdf[mask]['activity'].unique().tolist()
+                logger.info(f"Trovate {len(automated_activities)} attività automatizzate dalla colonna resource")
+
+            # Fallback se le risorse sono ancora hashate da vecchi volumi Docker:
+            if not automated_activities:
+                # Identifica automaticamente attività tipiche dei bot nel CRM
+                typical_bot_tasks = ['Qualified', 'Contract Sent', 'Email Scheduled', 'Lead Assigned', 'Stage Updated']
+                automated_activities = [
+                    act for act in pdf['activity'].unique() 
+                    if any(bot_task.upper() in str(act).upper() for bot_task in typical_bot_tasks)
+                ]
+                if automated_activities:
+                    logger.info(f"Trovate {len(automated_activities)} attività automatizzate tramite fallback intelligente")
+                
+            # 4. Estrazione Frequenze base tramite PM4Py (solo per consistenza archi)
+            pdf_formatted = pm4py.format_dataframe(pdf, case_id='case_id', activity_key='activity', timestamp_key='timestamp')
+            freq_result = pm4py.discover_dfg(pdf_formatted)
+            freq_dfg = freq_result[0] if isinstance(freq_result, tuple) else freq_result
+            
+            # ✅ ALGORITMO COLLI DI BOTTIGLIA
+            # Calcola soglia: 75° percentile + 1 deviazione standard
+            all_durations = list(perf_dfg.values())
+            bottleneck_threshold = 0.0
+            is_bottleneck_map = {}
+            
+            if all_durations:
+                import numpy as np
+                p75 = np.percentile(all_durations, 75)
+                std_dev = np.std(all_durations)
+                bottleneck_threshold = p75 + std_dev
+                
+                logger.info(f"✅ ALGORITMO COLLI DI BOTTIGLIA ATTIVO! Soglia calcolata: {bottleneck_threshold:.2f} secondi")
+                
+                for (source, target), duration in perf_dfg.items():
+                    is_bottleneck_map[(source, target)] = duration > bottleneck_threshold
+                
+                bottleneck_count = sum(1 for v in is_bottleneck_map.values() if v)
+                logger.info(f"✅ Trovati {bottleneck_count} colli di bottiglia su {len(is_bottleneck_map)} archi totali")
+            
+            nodes = []
+            edges = []
+            added_nodes = set()
+            
+            # Nodi di inizio e fine VERI calcolati direttamente
+            start_nodes = set(pdf.groupby('case_id')['activity'].first().unique())
+            end_nodes = set(pdf.groupby('case_id')['activity'].last().unique())
+            
+            for (source, target), freq in freq_dfg.items():
+                if source not in added_nodes:
+                    nodes.append({
+                        "id": source, "label": source,
+                        "type": "start" if source in start_nodes else ("end" if source in end_nodes else "normal"),
+                        "is_automated": source in automated_activities
+                    })
+                    added_nodes.add(source)
+                if target not in added_nodes:
+                    nodes.append({
+                        "id": target, "label": target,
+                        "type": "end" if target in end_nodes else ("start" if target in start_nodes else "normal"),
+                        "is_automated": target in automated_activities
+                    })
+                    added_nodes.add(target)
+                    
+                # Assegna i secondi calcolati direttamente da Pandas
+                avg_seconds = perf_dfg.get((source, target), 0.0)
+                
+                # Formatta label leggibile
+                if avg_seconds >= 86400:
+                    label = f"{avg_seconds / 86400:.1f} giorni"
+                elif avg_seconds >= 3600:
+                    label = f"{avg_seconds / 3600:.1f} ore"
+                elif avg_seconds >= 60:
+                    label = f"{avg_seconds / 60:.1f} min"
+                else:
+                    label = f"{avg_seconds:.1f} sec"
+                    
+                edges.append({
+                    "id": f"{source}-{target}", "source": source, "target": target,
+                    "type": "performance", "weight": float(avg_seconds), "label": label,
+                    "value_seconds": avg_seconds,
+                    "absolute_frequency": int(freq),
+                    "is_bottleneck": is_bottleneck_map.get((source, target), False),
+                    "details": {
+                        "average_seconds": avg_seconds
+                    }
+                })
+            
+            # Applica mapping workflows se presenti
+            if workflows:
+                nodes = self._map_workflows_to_nodes(nodes, workflows)
+            
+            graph_data = {"nodes": nodes, "edges": edges}
+            
+            logger.info(f"✅ ABSOLUTE FREQUENCY AGGIUNTA SU TUTTI GLI {len(edges)} ARCHI DEL GRAFO")
             
             result = {
-                'performance_dfg': dfg,
-                'start_activities': start_activities,
-                'end_activities': end_activities,
+                'frequency_dfg': freq_dfg,
+                'performance_dfg': perf_dfg,
+                'start_activities': list(start_nodes),
+                'end_activities': list(end_nodes),
                 'graph_data': graph_data,
-                'statistics': stats,
                 'discovery_timestamp': datetime.now().isoformat()
             }
             
             # ✅ SANIFICA TUTTO PRIMA DI RESTITUIRE
             result = self._sanitize_dict_robust(result)
             
-            logger.info("Performance DFG completato con successo")
+            logger.info("Performance DFG completato con successo (calcolo nativo Pandas)")
             return result
             
         except Exception as e:
@@ -407,9 +535,9 @@ class DiscoveryService:
     
     def _map_workflows_to_nodes(
         self,
-        nodes: List[Dict[str, Any]],
-        workflows: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        nodes: list[dict[str, Any]],
+        workflows: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         Mappa i workflow HubSpot sui nodi del grafo.
         
@@ -465,7 +593,7 @@ class DiscoveryService:
         
         return nodes
     
-    def _extract_workflow_actions(self, workflow: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _extract_workflow_actions(self, workflow: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Estrae le azioni da un workflow HubSpot.
         
@@ -531,7 +659,7 @@ class DiscoveryService:
         net,
         initial_marking,
         final_marking
-    ) -> Dict[str, List[Dict[str, Any]]]:
+    ) -> dict[str, list[dict[str, Any]]]:
         """
         Converte una Rete di Petri raw di PM4Py in un formato JSON-serializable
         comprensibile per il frontend (lista di Nodi e Archi).
@@ -544,8 +672,8 @@ class DiscoveryService:
         Returns:
             Dizionario con chiavi "nodes" e "edges" in formato JSON-safe
         """
-        nodes: List[Dict[str, Any]] = []
-        edges: List[Dict[str, Any]] = []
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
 
         # Determina quali places sono start/end basandosi sulle marcature
         initial_places = set(initial_marking.keys()) if initial_marking else set()
@@ -600,13 +728,13 @@ class DiscoveryService:
 
     def _dfg_to_graph_format(
         self,
-        dfg: Dict[DFGKey, Any],
-        start_activities: Dict[str, int],
-        end_activities: Dict[str, int],
+        dfg: dict[DFGKey, Any],
+        start_activities: dict[str, int],
+        end_activities: dict[str, int],
         is_performance: bool = False,
-        workflows: Optional[List[Dict[str, Any]]] = None,
-        automated_activities: Optional[List[str]] = None
-    ) -> Dict[str, List[Dict[str, Any]]]:
+        workflows: list[dict[str, Any]] | None = None,
+        automated_activities: list[str] | None = None
+    ) -> dict[str, list[dict[str, Any]]]:
         automated_activities = automated_activities or []
         """
         Converte un DFG raw di PM4Py in un formato JSON-serializable
@@ -622,8 +750,8 @@ class DiscoveryService:
         Returns:
             Dizionario con chiavi "nodes" e "edges" in formato JSON-safe
         """
-        nodes_dict: Dict[str, Dict[str, Any]] = {}
-        edges: List[Dict[str, Any]] = []
+        nodes_dict: dict[str, dict[str, Any]] = {}
+        edges: list[dict[str, Any]] = []
 
         # Determina i tipi di nodo basandosi su start/end activities
         start_set = set(start_activities.keys())
@@ -706,6 +834,7 @@ class DiscoveryService:
                     "target": target,
                     "type": "frequency",
                     "weight": frequency,
+                    "absolute_frequency": frequency,
                     "label": f"{frequency} occorrenze"
                 })
 
@@ -714,6 +843,8 @@ class DiscoveryService:
         
         # Mappa workflow sui nodi se forniti
         if workflows:
+            # 🔴 IMPORTANTE: Converti i nodi Pydantic FROZEN in dizionari mutabili
+            nodes = [n.model_dump() if hasattr(n, 'model_dump') else dict(n) for n in nodes]
             nodes = self._map_workflows_to_nodes(nodes, workflows)
 
         return {"nodes": nodes, "edges": edges}
@@ -722,6 +853,10 @@ class DiscoveryService:
         """Converte DataFrame Polars in Pandas formattato per PM4Py."""
         # Converte Polars in Pandas
         pdf = df.to_pandas()
+        
+        # Forza la colonna a datetime per permettere a PM4Py di calcolare le durate
+        if 'timestamp' in pdf.columns:
+            pdf['timestamp'] = pd.to_datetime(pdf['timestamp'], utc=True, errors='coerce')
         
         # Formattiamo indicando a PM4Py le 3 colonne obbligatorie
         formatted_log = pm4py.format_dataframe(
@@ -732,7 +867,7 @@ class DiscoveryService:
         )
         return formatted_log
     
-    def _calculate_dfg_statistics(self, dfg: Dict, start_activities: Dict, end_activities: Dict) -> Dict[str, Any]:
+    def _calculate_dfg_statistics(self, dfg: dict, start_activities: dict, end_activities: dict) -> dict[str, Any]:
         """Calcola statistiche per il DFG."""
         return {
             'total_edges': len(dfg),
@@ -742,7 +877,7 @@ class DiscoveryService:
             'most_frequent_transition': max(dfg.items(), key=lambda x: x[1]) if dfg else None
         }
     
-    def _calculate_petri_net_statistics(self, net, initial_marking, final_marking) -> Dict[str, Any]:
+    def _calculate_petri_net_statistics(self, net, initial_marking, final_marking) -> dict[str, Any]:
         """Calcola statistiche per la rete di Petri."""
         return {
             'places_count': len(net.places),
@@ -752,7 +887,7 @@ class DiscoveryService:
             'final_marking_places': len(final_marking)
         }
     
-    def _calculate_performance_statistics(self, performance_dfg: Dict) -> Dict[str, Any]:
+    def _calculate_performance_statistics(self, performance_dfg: dict) -> dict[str, Any]:
         """Calcola statistiche per il DFG performance."""
         if not performance_dfg:
             return {}

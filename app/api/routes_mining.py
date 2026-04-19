@@ -888,3 +888,26 @@ async def update_data_structure(data_structure: Dict[str, str]):
     except Exception as e:
         logger.error(f"Errore aggiornamento struttura dati: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/debug/data/{portal_id}")
+def debug_raw_data(portal_id: str):
+    """Endpoint temporaneo per ispezionare lo schema del DB"""
+    try:
+        from app.core.database import load_event_log
+        
+        df = load_event_log(portal_id)
+        
+        # Converte i primi 3 record in dizionario per ispezione
+        if hasattr(df, "to_dicts"):
+            sample = df.head(3).to_dicts()  # Se è Polars
+        else:
+            sample = df.head(3).to_dict(orient="records") # Se è Pandas
+            
+        return {
+            "colonne": list(df.columns),
+            "tipi_di_dato": {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)},
+            "primi_record": sample
+        }
+    except Exception as e:
+        return {"error": str(e)}

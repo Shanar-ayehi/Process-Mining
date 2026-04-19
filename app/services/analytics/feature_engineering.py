@@ -36,6 +36,10 @@ class FeatureEngineeringService:
         logger.info("Estrazione features base dall'event log")
         
         try:
+            # Forza il parsing delle stringhe ISO8601 in Datetime per calcolare correttamente le ore/giorni
+            if df.schema['timestamp'] != pl.Datetime:
+                df = df.with_columns(pl.col('timestamp').str.to_datetime(strict=False))
+            
             features = {}
             
             if df.is_empty():
