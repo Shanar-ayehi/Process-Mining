@@ -10,7 +10,7 @@ import simpy
 import random
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.core.logger import get_logger
 
 logger = get_logger()
@@ -294,14 +294,15 @@ class SimulationService:
         start_weights = list(start_activities.values())
         current_activity = rng.choices(start_acts, weights=start_weights, k=1)[0]
         
-        timestamp = 0.0
+        # Inizializza timestamp reale sfalsato per ogni caso
+        current_time = datetime.now() + timedelta(hours=case_id)
         
         while True:
             # Registra evento corrente
             simulated_log.append({
                 "case_id": f"sim_case_{case_id}",
                 "activity": current_activity,
-                "timestamp": timestamp,
+                "timestamp": current_time.isoformat(),
                 "resource": "simulated"
             })
             
@@ -345,10 +346,13 @@ class SimulationService:
                     current_node, modifications, rng
                 )
             
+            # Converti delay automazioni da giorni a secondi
+            automation_delay_seconds = automation_delay * 86400.0 
+            total_delay_seconds = duration + automation_delay_seconds
+            
             # Attendi durata attività + automazioni
-            total_delay = duration + automation_delay
-            yield env.timeout(total_delay)
-            timestamp += total_delay
+            yield env.timeout(total_delay_seconds)
+            current_time += timedelta(seconds=total_delay_seconds)
             
             # Passa alla prossima attività
             current_activity = next_activity
@@ -465,8 +469,26 @@ class SimulationService:
         metrics = self._calculate_metrics(simulated_log, performance_dfg)
         
         logger.info(f"Simulazione completata: {len(simulated_log)} eventi generati")
+
+        # FIX PER "TypeError: unhashable type: 'list'"
+        # Converte forzatamente le chiavi dei dizionari che sono liste (o tuple) in stringhe.
+        def _sanitize_dict_keys(obj):
+            if isinstance(obj, dict):
+                new_dict = {}
+                for k, v in obj.items():
+                    # Se la chiave è una lista, tupla, o comunque non una stringa/numero
+                    if isinstance(k, (list, tuple, dict)):
+                        safe_key = str(k) # Es: converte (A, B) in "(A, B)"
+                    else:
+                        safe_key = k
+                    new_dict[safe_key] = _sanitize_dict_keys(v)
+                return new_dict
+            elif isinstance(obj, list):
+                return [_sanitize_dict_keys(i) for i in obj]
+            return obj
         
-        return {
+        # Costruisci risultato
+        result = {
             "simulated_cases": simulated_log,
             "num_cases": num_cases,
             "num_events": len(simulated_log),
@@ -474,6 +496,10 @@ class SimulationService:
             "modifications_applied": modifications or {},
             "timestamp": datetime.now().isoformat()
         }
+        
+        # Applica la sanificazione a tutto il risultato
+        sanitized_result = _sanitize_dict_keys(result)
+        return sanitized_result
     
     def _calculate_metrics(
         self,
@@ -499,9 +525,16 @@ class SimulationService:
         cycle_times = []
         for case_id, events in cases.items():
             if len(events) >= 2:
-                # Ordina per timestamp
-                sorted_events = sorted(events, key=lambda e: e["timestamp"])
-                cycle_time = sorted_events[-1]["timestamp"] - sorted_events[0]["timestamp"]
+                # Ordina per timestamp parsandolo correttamente
+                def get_dt(event):
+                    t = event["timestamp"]
+                    if isinstance(t, str):
+                        return datetime.fromisoformat(t.replace('Z', '+00:00'))
+                    return t
+                    
+                sorted_events = sorted(events, key=get_dt)
+                # Calcola la differenza in secondi
+                cycle_time = (get_dt(sorted_events[-1]) - get_dt(sorted_events[0])).total_seconds()
                 cycle_times.append(cycle_time)
         
         if not cycle_times:

@@ -438,7 +438,7 @@ async def run_simulation(request: SimulationRequestSchema):
             'end_activities': new_dfg_result['end_activities']
         }
 
-        # 8. ✅ Sanifica risultato prima di restituire per evitare errori JSON
+        # ✅ SANIFICA COMPLETA PRIMA DI OGNI COSA: converte TUTTE le chiavi lista/tupla in stringhe
         from app.api.routes_mining import sanitize_for_json
         simulation_result = sanitize_for_json(simulation_result)
 

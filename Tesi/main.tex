@@ -133,8 +133,8 @@ A conclusione dei cicli di sviluppo, il progetto ha portato alla realizzazione d
 \subsection*{Process Mining Engine e Data Quality}
 Il cuore analitico del sistema si basa sulla libreria Python \textbf{PM4Py} \footcite{pm4py}, attraverso la quale sono stati generati \textit{Directly-Follows Graph} (DFG) per esplorare visivamente il flusso commerciale. Il sistema elabora KPI complessi, quali i tempi medi di transizione e il \textit{Rework Rate} (il tasso di attività ripetute all'interno della stessa pratica). Prima di ogni analisi, il dataset viene sottoposto a rigorosi controlli di \textit{Data Quality} per verificarne completezza, correttezza dei tipi e assenza di anomalie temporali, avvalendosi del framework \textbf{Pandera}.
 
-\subsection*{Interfaccia Utente e Analitica Predittiva}
-Il layer di presentazione dei dati è stato sviluppato mediante \textbf{Streamlit}, creando una Dashboard dinamica divisa per moduli funzionali. Gli utenti finali possono esplorare le metriche di performance, individuare i "colli di bottiglia" visualmente, e accedere ad una sezione dedicata agli \textit{Insights Predittivi}. In tale modulo, appositi modelli di \textit{Machine Learning} (es. Random Forest) processano le feature ingegnerizzate dagli event log per assegnare uno "score" di rischio o di probabilità di chiusura positiva ai deal attualmente aperti.
+\subsection*{Interfaccia Utente e Analitica Simulativa}
+Il layer di presentazione dei dati è stato sviluppato mediante uno stack frontend moderno basato su \textbf{React 18} e \textbf{TypeScript}, utilizzando \textbf{Vite} come build tool e \textbf{Material-UI} per i componenti interfaccia. Il cuore visivo della Dashboard è affidato a \textbf{React Flow} (@xyflow/react), libreria specializzata per la renderizzazione interattiva di grafi. Gli utenti finali possono esplorare i Directly-Follows Graph in un canvas full-screen, navigare tramite MiniMap, applicare filtri dinamici e configurare scenari di simulazione What-If tramite la sidebar di controllo.
 
 \subsection*{Reverse ETL e Integrazione HubSpot}
 A completamento del flusso informativo, il sistema non si limita alla visualizzazione passiva dei dati, ma li reintegra in HubSpot. I KPI calcolati e gli score predittivi vengono riscritti nei record originali del CRM attraverso tecniche di \textbf{Reverse ETL}, permettendo ai commerciali di visualizzare lo stato di salute del loro processo di vendita direttamente nel loro ambiente di lavoro quotidiano, abilitando di fatto la creazione di \textit{workflow} e \textit{alert} automatizzati.
@@ -188,32 +188,19 @@ celery_app.conf.update(
 )
 \end{verbatim}
 
-\subsection{Storage, Analisi e Governance (DuckDB, Polars, Pandera)}
+\subsection{Storage, Analisi e Governance (SQLite, DuckDB, Polars, Pandera)}
+Per la persistenza dello stato applicativo e la gestione transazionale viene utilizzato \textbf{SQLite} con ORM \textbf{SQLAlchemy} e driver \texttt{aiosqlite} per operazioni asincrone. Questo database relazionale ospita lo storage dei token OAuth2 HubSpot, le sessioni utente, la configurazione dei processi salvati e i metadati di sistema.
+
 Per la trasformazione e la manipolazione strutturale dei dati in memoria (fase di \textit{Transformation}), si è optato per \textbf{Polars}. Sfruttando un motore scritto in Rust e basato sul formato \textit{Apache Arrow}, Polars esegue le operazioni in modalità \textit{multithreading} e tramite query "lazy" ottimizzate, offrendo prestazioni e un'efficienza nella gestione della memoria nettamente superiori rispetto al tradizionale approccio \textit{single-threaded} di Pandas.
 
-La persistenza analitica locale è stata implementata tramite \textbf{DuckDB}. Questo sistema RDBMS \textit{in-process}, orientato al mondo OLAP (Online Analytical Processing), permette di eseguire interrogazioni SQL complesse direttamente sui file Parquet o sulle variabili in memoria generate da Polars, senza l'overhead tipico di un database server client-server come PostgreSQL. Il salvataggio dei dataframe avviene in modo diretto e integrato, riducendo drasticamente il codice boilerplate, come visibile nella funzione di gestione del database:
-
-\begin{verbatim}
-def save_event_log(df: pl.DataFrame, table_name: str = "event_log"):
-    conn = get_db_connection()
-    try:
-        conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM df")
-    except Exception as e:
-        logger.error(f"Errore durante il salvataggio nel DB: {e}")
-        raise
-    finally:
-        conn.close()
-\end{verbatim}
+La persistenza analitica locale è stata implementata tramite \textbf{DuckDB}. Questo sistema RDBMS \textit{in-process}, orientato al mondo OLAP (Online Analytical Processing), permette di eseguire interrogazioni SQL complesse direttamente sui file Parquet o sulle variabili in memoria generate da Polars, senza l'overhead tipico di un database server client-server come PostgreSQL.
 
 In parallelo, le operations di \textit{Data Governance} e \textit{Data Quality} sono monitorate attraverso \textbf{Pandera} \footcite{bantilan2020}. Questo framework di \textit{schema validation} intercetta i dataframe in ingresso verificandone la conformità a specifiche rigorose: tipo di dato corretto, presenza ineludibile dei campi obbligatori, formato coerente dei timestamp e identificazione precoce di anomalie che potrebbero inficiare le analisi del Process Mining.
 
-\subsection{Frontend Dashboard (Streamlit)}
-Per l'interfaccia utente e l'esposizione interattiva degli analytics è stato selezionato \textbf{Streamlit}. Si tratta di un framework capace di convertire script Python in dashboard applicative in modo istantaneo, azzerando la complessità legata allo sviluppo frontend puro (HTML/JS/CSS). Tramite Streamlit sono state realizzate diverse aree funzionali:
-\begin{itemize}
-    \item \textit{Dashboard Processo:} Per la visualizzazione del \textit{Sankey diagram} e dei colli di bottiglia.
-    \item \textit{Qualità Dati:} Per il monitoraggio in tempo reale dei punteggi di completezza e validità tramite metriche Pandera.
-    \item \textit{Insights Predittivi:} Per esporre le probabilità di conversione generate dai modelli algoritmici.
-\end{itemize}
+\subsection{Frontend Dashboard (React 18 + React Flow)}
+Per l'interfaccia utente è stato adottato uno stack frontend moderno e disaccoppiato dal backend Python, basato su \textbf{React 18} e \textbf{TypeScript} con \textbf{Vite} come build tool. La libreria \textbf{Material-UI} viene utilizzata per l'implementazione dei componenti interfaccia secondo le linee guida Material Design.
+
+Il cuore visuale della piattaforma è affidato a \textbf{@xyflow/react} (React Flow), libreria specializzata per la renderizzazione interattiva di grafi e network. Questa scelta architetturale garantisce una netta separazione tra logica di business backend e layer di presentazione, permettendo performance grafiche e interattività non ottenibili con framework server-side.
 
 \subsection{Gestione Dipendenze e Containerizzazione (Poetry, Docker)}
 A garanzia della riproducibilità ambientale e della stabilità infrastrutturale, la gestione dei pacchetti software è stata affidata a \textbf{Poetry}. Rispetto al tradizionale strumento \texttt{pip}, Poetry implementa un risolutore di dipendenze deterministico basato su \textit{lockfile} (\texttt{poetry.lock}). Tale approccio ha evitato categoricamente l'insorgenza di conflitti di versione tra l'ecosistema web (FastAPI, Uvicorn) e l'ecosistema matematico-scientifico (PM4Py, Polars, scikit-learn).
@@ -662,47 +649,30 @@ Tale integrazione chiude il cerchio della \textit{Data-Driven Enterprise}: l'ana
 
 L'efficacia di un sistema di \textit{Process Intelligence} non si misura esclusivamente dalla sofisticazione dei suoi algoritmi matematici, ma anche e soprattutto dal suo grado di usabilità e dalla capacità di tradurre \textit{insight} complessi in informazioni visivamente intuitive. Per garantire l'adozione dello strumento da parte degli stakeholder aziendali, il backend analitico è stato accoppiato a un livello di presentazione (Frontend) reattivo, progettato secondo i principi della \textit{User Experience} (UX) orientata ai dati.
 
-\section{Progettazione della User Interface (Streamlit)}
-Per lo sviluppo dell'interfaccia utente è stato impiegato \textbf{Streamlit} \footcite{streamlit2024}, un framework open-source basato su Python. La scelta di questa tecnologia, in alternativa a framework frontend classici come React o Angular, è motivata dalla sua integrazione nativa con l'ecosistema data-scientifico (Polars, Pandas, PM4Py, Scikit-learn). Streamlit permette di aggiornare reattivamente il \textit{Document Object Model} (DOM) a ogni interazione dell'utente con i parametri di input, azzerando la necessità di gestire complessi stati client-side o scrivere codice boilerplate in JavaScript.
+\section{Progettazione della User Interface (React Flow)}
+Per lo sviluppo dell'interfaccia utente è stato adottato uno stack client-side completamente disaccoppiato, basato su \textbf{React 18} e \textbf{TypeScript}. La libreria \textbf{@xyflow/react}, conosciuta come React Flow, costituisce il nucleo tecnologico per la visualizzazione interattiva dei grafi di processo.
 
-L'applicazione è stata strutturata secondo un'architettura multipagina (\textit{Multipage App}), dividendo logicamente i domini operativi per evitare il sovraccarico cognitivo dell'utente. Il punto di ingresso (\texttt{main.py}) funge da router, caricando dinamicamente i moduli richiesti attraverso una barra di navigazione laterale:
+Questa scelta architetturale garantisce:
+\begin{itemize}
+    \item Separazione netta tra logica di business backend e layer di presentazione
+    \item Performance grafiche a 60fps anche per grafi con oltre 50 nodi
+    \item Gestione nativa di gesture di zoom, pan e drag drop
+    \item Architettura componentizzata e facilmente estendibile
+\end{itemize}
 
-\begin{verbatim}
-import streamlit as st
+Il canvas React Flow viene popolato dinamicamente con i dati del Directly-Follows Graph restituiti dalle API FastAPI. Ogni nodo viene renderizzato come componente custom, sul quale viene applicato un badge visibile qualora sulla specifica fase di pipeline sia configurata una automazione nativa di HubSpot.
 
-def main():
-    st.set_page_config(
-        page_title="Process Mining Enterprise",
-        page_icon="Analytics",
-        layout="wide"
-    )
-    
-    st.sidebar.title("Navigazione")
-    page = st.sidebar.radio("Seleziona un modulo:", [
-        "Dashboard Processo",
-        "Qualità dei Dati",
-        "Insights Predittivi",
-        "Impostazioni di Rete"
-    ])
-    
-    if page == "Dashboard Processo":
-        render_process_dashboard()
-    elif page == "Qualità dei Dati":
-        render_data_quality()
-    elif page == "Insights Predittivi":
-        render_predictive_insights()
-    else:
-        render_settings()
+\section{Visualizzazione interattiva dei grafi e controlli}
 
-\end{verbatim}
+L'interfaccia utente mette a disposizione i seguenti controlli nativi di React Flow:
+\begin{itemize}
+    \item \textbf{MiniMap}: Mappa di navigazione in basso a destra per orientarsi all'interno di grafi estesi
+    \item \textbf{Controls Bar}: Pulsanti per zoom, fit view, blocco pannello e visualizzazione fullscreen
+    \item \textbf{Background Pattern}: Griglia di riferimento per l'allineamento dei nodi
+    \item \textbf{Slider di filtro frequenza}: Controllo continuo 0-100\% per nascondere dinamicamente gli archi a bassa occorrenza
+\end{itemize}
 
-\section{Visualizzazione interattiva dei grafi e dei KPI}
-
-Il modulo centrale della piattaforma è la \textbf{Dashboard Processo}, che espone visivamente il \textit{Directly-Follows Graph} (DFG) calcolato dal motore di \textit{Discovery}.
-
-Per la renderizzazione dei grafi orientati è stata utilizzata l'integrazione tra PM4Py e \textbf{Graphviz}. Poiché i grafi aziendali possono diventare estremamente densi, l'interfaccia mette a disposizione dell'analista una serie di \textit{slider} interattivi per calibrare "al volo" le soglie algoritmiche (es. la \textit{Dependency Threshold} dell'Heuristics Miner). Modificando questi parametri, l'utente applica un filtro euristico che fa sparire in tempo reale gli archi corrispondenti a deviazioni rare o rumore di fondo, mettendo a nudo il nucleo del processo (\textit{Happy Path}).
-
-A corredo della topologia di rete, la dashboard presenta i KPI di processo estratti dal \texttt{KPIService}. Sfruttando i componenti metrici di Streamlit (\texttt{st.metric}), vengono messi in risalto gli scostamenti prestazionali (\textit{delta}) rispetto alle medie storiche. I colli di bottiglia vengono esplicitati in una tabella dedicata, ordinata in modo decrescente per tempo di ritardo accumulato, permettendo al management di identificare immediatamente le fasi di \textit{pipeline} (es. "Attesa Firma Contratto") che necessitano di un intervento manageriale.
+La sidebar laterale destra ospita invece i controlli per la \textbf{What-If Analysis}: tramite slider e toggle l'utente può modificare i tempi medi di transizione, modificare le probabilità di passaggio tra nodi e disabilitare temporaneamente le automazioni, avviando successivamente una simulazione asincrona orchestrata da Celery.
 
 \section{Dashboard per il monitoraggio predittivo e della qualità dei dati}
 Oltre all'esplorazione diagnostica, la piattaforma fornisce due cruscotti operativi specializzati: il monitoraggio della conformità dei dati e l'intelligenza predittiva.
