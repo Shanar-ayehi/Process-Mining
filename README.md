@@ -1,64 +1,60 @@
 # Process Mining System - FastAPI Backend & React Frontend
 
-## Descrizione del Progetto
+## Project Description
 
-Sistema Process Mining completo basato su **FastAPI** (backend) e **React** (frontend) per l'analisi dei processi aziendali con integrazione HubSpot tramite OAuth 2.0.
+Process Mining Platform based on **FastAPI** (backend) & **React** (frontend) for the analysis of corporate processes w/Hubspot Integration through OAUTH 2.0.
 
-**Stack Tecnologico:**
+**Tech Stack:**
 - **Backend**: Python 3.12, FastAPI + Uvicorn, PM4Py, SimPy, Celery + Redis, SQLite
 - **Frontend**: React 18, TypeScript, @xyflow/react (React Flow), Material-UI, Vite
-- **Integrazione**: HubSpot OAuth 2.0 con scope `automation` per workflow
+- **Integrazione**: HubSpot OAuth 2.0 w/scope `automation` for workflow
 
-## Architettura del Sistema
+## System Architecture
 
-### Componenti Principali
+### Main Components
 
 1. **API REST (FastAPI)**
-   - Endpoint per autenticazione OAuth 2.0
-   - Connessione HubSpot CRM con estrazione workflow
-   - Process Discovery e Conformance Checking
-   - Simulation Engine per What-If Analysis
-   - Data Quality e Privacy Governance
+   - Endpoint for OAuth 2.0 authentication;
+   - Connection to CRM on HS with Worfklow extraction;
+   - Process Discovery & Conformance Checking;
+   - Simulation Engine for What-If Analysis;
+   - Data Quality & Privacy Governance.
 
-2. **Dashboard Globale (React + React Flow)**
-   - Canvas interattivo full-screen con grafo processo
-   - Nodi custom con badge automazioni HubSpot
-   - Filtro frequenza archi (slider continuo)
-   - Sidebar What-If Analysis
-   - MiniMap, Controls e Background per navigazione
+2. **Global Dashboard (React + React Flow)**
+   - Full-screen interactive Canvas with process graph;
+   - Custom nodes with flagging system for HubSpot Automations;
+   - Filter for archs frequency (continuous slider);
+   - Sidebar with What-If Analysis.
 
 3. **ETL Pipeline**
-   - Estrazione dati da HubSpot (Deal, Contact, Company, Workflows)
-   - Trasformazione in event log
-   - Validazione qualità dati
-   - Pseudonimizzazione GDPR
+   - Data extraction from HubSpot (Deal, Contact, Company, Workflows);
+   - transformation in Event Logs;
+   - Validazione qualità dati;
+   - Pseudonymization as for GDPR regulations.
 
 4. **Process Mining Engine**
-   - DFG (Directly-Follows Graph) con automazioni mappate
-   - Alpha Miner, Heuristic Miner, Inductive Miner
-   - Analisi varianti processo
-   - Calcolo KPI
+   - DFG (Directly-Follows Graph) w/mapped automations;
+   - Alpha Miner, Heuristic Miner, Inductive Miner;
+   - Process Variants Analysis;
+   - KPI calculation.
 
 5. **Simulation Engine (SimPy)**
-   - Simulazione What-If Analysis asincrona
-   - Modifica tempi di esecuzione nodi
-   - Modifica probabilità di transizione
-   - Disabilitazione/override automazioni HubSpot
-   - Task asincroni con Celery
+   - Asynchronous What-If Analysis:
+      - Timing;
+      - on/off Automations;
+      - Transition probability.
 
-6. **Task Asincroni (Celery + Redis)**
-   - Elaborazione ETL in background
-   - Mining processi asincrono
-   - Simulazione What-If asincrona
-   - Controllo qualità periodico
+6. **Asynchronous Tasks (Celery + Redis)**
+   - ETL elaboration in background;
+   - Asynchronous Process mining;
+   - Asynchronous What-if Analysis.
 
-7. **Privacy e GDPR**
-   - Pseudonimizzazione email
-   - Data retention policy
-   - Audit log accessi
-   - Validazione compliance
+7. **Privacy & GDPR**
+   - Pseudonymization for emails;
+   - Data retention policy;
+   - Audit log for log-ins;
 
-## Struttura del Progetto
+## Project Structure
 
 ```
 Process-Mining/
@@ -66,71 +62,71 @@ Process-Mining/
 ├── app/
 │   ├── api/                         # API REST
 │   │   ├── main.py                  # App FastAPI
-│   │   ├── routes_connector.py      # Endpoint HubSpot (incluso workflow)
-│   │   ├── routes_mining.py         # Endpoint mining (incluso DFG con automazioni)
-│   │   ├── routes_analytics.py      # Endpoint analytics (simulazione What-If)
+│   │   ├── routes_connector.py      # Endpoint HubSpot (workflow included)
+│   │   ├── routes_mining.py         # Endpoint mining (DFG w/automations included)
+│   │   ├── routes_analytics.py      # Endpoint analytics (What-If simulation)
 │   │   ├── routes_dq.py             # Endpoint data quality
-│   │   ├── routes_process_management.py  # Gestione processi
-│   │   ├── routes/auth.py           # Autenticazione OAuth (scope automation)
+│   │   ├── routes_process_management.py  # Process Management
+│   │   ├── routes/auth.py           # OAuth (scope automation)
 │   │   └── routes_external_cards.py # External cards
-│   ├── connectors/                  # Connettori esterni
-│   │   ├── hubspot_client.py        # Client HubSpot OAuth (incluso get_workflows)
+│   ├── connectors/                  # External connectors
+│   │   ├── hubspot_client.py        # Client HubSpot OAuth (get_workflows included)
 │   │   └── hubspot_mapper.py        # Mapping dati
-│   ├── core/                        # Funzionalità core
-│   │   ├── config.py                # Configurazione
+│   ├── core/                        # Core Functionalities
+│   │   ├── config.py                # Config
 │   │   ├── database.py              # Database SQLite
 │   │   ├── logger.py                # Logging
 │   │   ├── privacy.py               # Privacy GDPR
-│   │   ├── bootstrap.py             # Bootstrap sistema
-│   │   └── integration.py           # Test integrazione
-│   ├── services/                    # Logica business
-│   │   ├── etl/                     # Servizi ETL
-│   │   │   ├── data_extraction.py   # Estrazione dati (incluso workflow)
-│   │   │   ├── data_transformation.py # Trasformazione
-│   │   │   ├── data_quality.py      # Qualità dati
+│   │   ├── bootstrap.py             # System Bootstrap
+│   │   └── integration.py           # Integration Test
+│   ├── services/                    # Business Logic
+│   │   ├── etl/                     # ETL Services
+│   │   │   ├── data_extraction.py   # Data Extraction (Workflow included)
+│   │   │   ├── data_transformation.py # Transformation
+│   │   │   ├── data_quality.py      # Data Quality
 │   │   │   └── privacy_governance.py # Privacy
-│   │   ├── mining/                  # Servizi mining
-│   │   │   ├── discovery_service.py # Process Discovery (con mapping automazioni)
+│   │   ├── mining/                  # Mining Services
+│   │   │   ├── discovery_service.py # Process Discovery (w/automation mapping)
 │   │   │   ├── conformance_service.py # Conformance
-│   │   │   └── kpi_service.py       # Calcolo KPI
-│   │   └── analytics/               # Servizi analytics
+│   │   │   └── kpi_service.py       # KPI Calc
+│   │   └── analytics/               # Analytics Services
 │   │       └── simulation_service.py # Simulation Engine (SimPy)
-│   ├── tasks/                       # Task Celery
-│   │   ├── worker.py                # Worker Celery
-│   │   ├── etl_task.py              # Task ETL (incluso workflow)
-│   │   ├── mining_task.py           # Task mining
-│   │   ├── analytics_task.py        # Task simulazione What-If
+│   ├── tasks/                       # Celery tasks
+│   │   ├── worker.py                # Celery Worker
+│   │   ├── etl_task.py              # ETL tasks(workflow included)
+│   │   ├── mining_task.py           # mining tasks
+│   │   ├── analytics_task.py        # What-If Simulation Task
 │   │   └── dq_task.py               # Task data quality
-│   └── models/                      # Modelli database
-│       └── auth.py                  # Modelli autenticazione
+│   └── models/                      # Database models
+│       └── auth.py                  # AUTH Models
 ├── frontend/                        # React Frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── ProcessList.tsx      # Lista processi
+│   │   │   ├── ProcessList.tsx      # Process Lists
 │   │   │   ├── ProcessAnalysis.tsx  # Canvas React Flow
-│   │   │   ├── CustomNode.tsx       # Nodo custom con badge automazioni
+│   │   │   ├── CustomNode.tsx       # Custom node with Automation Flagging
 │   │   │   ├── WhatIfSidebar.tsx    # Sidebar What-If Analysis
-│   │   │   └── ProcessDetail.tsx    # Dettaglio processo
-│   │   ├── App.tsx                  # Routing principale
-│   │   └── index.css                # Stili (inclusi React Flow)
-│   └── package.json                 # Dipendenze (incluso @xyflow/react)
-├── data/                            # Directory dati
-│   ├── raw/                         # Dati grezzi (inclusi workflow JSON)
-│   ├── processed/                   # Dati processati
+│   │   │   └── ProcessDetail.tsx    # Process Detail
+│   │   ├── App.tsx                  # Main Routing
+│   │   └── index.css                # Styles (React Flow included)
+│   └── package.json                 # Dependencies (@xyflow/react included)
+├── data/                            # Directory for datas
+│   ├── raw/                         # Raw Datas
+│   ├── processed/                   # Processed Datas
 │   └── warehouse/                   # Data warehouse
-├── logs/                            # Log sistema
-├── docker-compose.yml               # Configurazione Docker
-├── pyproject.toml                   # Configurazione Python (incluso SimPy)
-└── README.md                        # Questo file
+├── logs/                            # System Logs
+├── docker-compose.yml               # Docker Config
+├── pyproject.toml                   # Python Project Config
+└── README.md                        # This File
 ```
 
-## Installazione e Setup
+## Setup
 
-### Prerequisiti
+### Prerequisites
 - Python 3.12+
 - Node.js 18+
-- Docker & Docker Compose (opzionale)
-- HubSpot Developer Account (per integrazione reale)
+- Docker & Docker Compose (optional)
+- HubSpot Developer Account (for proper Integration)
 
 ### Setup Backend
 
