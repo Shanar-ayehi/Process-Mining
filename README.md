@@ -130,20 +130,20 @@ Process-Mining/
 
 ### Setup Backend
 
-1. **Clona repository**
+1. **Clone repository**
    ```bash
    git clone <repository-url>
    cd Process-Mining
    ```
 
-2. **Installa dipendenze Python**
+2. **Install Python Dependencies**
    ```bash
    poetry install
    ```
 
-3. **Configura ambiente**
+3. **ENV Config**
    ```bash
-   # Crea file .env
+   # Create .env file
    HUBSPOT_CLIENT_ID=your_client_id
    HUBSPOT_CLIENT_SECRET=your_client_secret
    HUBSPOT_REDIRECT_URI=http://localhost:8000/api/v1/auth/callback
@@ -152,69 +152,69 @@ Process-Mining/
    EMAIL_HASH_SALT=your_salt_here
    ```
 
-4. **Avvia backend**
+4. **Start backend**
    ```bash
    python main.py
    ```
 
 ### Setup Frontend
 
-1. **Entra nella directory frontend**
+1. **Get in Frontend dir**
    ```bash
    cd frontend
    ```
 
-2. **Installa dipendenze Node**
+2. **Install Node Dependencies**
    ```bash
    npm install
    ```
 
-3. **Configura variabili ambiente**
+3. **Config ENV Variables**
    ```bash
-   # Crea file .env nella directory frontend/
+   # Create .env file in frontend/ dir
    echo "VITE_API_BASE_URL=http://localhost:8000/api/v1" > .env
    echo "VITE_API_URL=http://localhost:8000/api/v1" >> .env
    ```
 
-4. **Avvia frontend**
+4. **Start frontend**
    ```bash
    npm run dev
    ```
 
-### Autenticazione OAuth 2.0
+### OAuth 2.0
 
-Il sistema utilizza **OAuth 2.0 con HubSpot** per l'autenticazione. Il flusso è il seguente:
+The system uses **OAuth 2.0 with HubSpot** for authentication. The flow is as follows:
 
-1. **Login**: L'utente accede al frontend e viene reindirizzato a HubSpot per l'autorizzazione
-2. **Callback**: HubSpot reindirizza a `/auth/success` con un JWT token
-3. **Salvataggio**: Il token viene salvato in `localStorage` come `'token'`
-4. **Utilizzo**: Ogni chiamata API invia automaticamente il token tramite un **Axios Request Interceptor**
-5. **Verifica**: Il backend verifica il token JWT su ogni richiesta protetta
+1. **Login**: The user accesses the frontend and is redirected to HubSpot for authorization
+2. **Callback**: HubSpot redirects to `/auth/success` with a JWT token
+3. **Saving**: The token is saved in `localStorage` as `'token'`
+4. **Usage**: Every API call automatically sends the token via an **Axios Request Interceptor**
+5. **Verification**: The backend verifies the JWT token on every protected request
 
-#### Configurazione Frontend
+#### Frontend Config
 
-Il frontend utilizza un **ProtectedRoute sincrono** che:
-- Controlla la presenza del token in `localStorage` all'avvio
-- Se il token è presente, consente l'accesso immediatamente (no chiamata API)
-- Se il token è assente, reindirizza al login HubSpot
-- L'autorizzazione reale avviene quando le singole API restituiscono 401 se il token è scaduto/invalido
+The frontend uses a **synchronous ProtectedRoute** that:
+- Checks for the presence of the token in `localStorage` upon startup
+- If the token is present, it grants access immediately (no API call)
+- If the token is absent, it redirects to the HubSpot login
+- The actual authorization occurs when individual APIs return 401 if the token is expired/invalid
 
 #### Variabili d'Ambiente Frontend
 
-| Variabile | Descrizione | Default |
+| Var | DESC | Default |
 |-----------|-------------|---------|
-| `VITE_API_BASE_URL` | URL base del backend API | `http://localhost:8000/api/v1` |
-| `VITE_API_URL` | URL completo per redirect auth | `http://localhost:8000/api/v1` |
+| `VITE_API_BASE_URL` | URL of backend API | `http://localhost:8000/api/v1` |
+| `VITE_API_URL` | Complete URL for auth redirect | `http://localhost:8000/api/v1` |
 | `VITE_HUBSPOT_CLIENT_ID` | Client ID app HubSpot | - |
-| `VITE_HUBSPOT_REDIRECT_URI` | URI redirect OAuth | Auto-generato |
+| `VITE_HUBSPOT_REDIRECT_URI` | URI redirect OAuth | auto-generating |
 
 ### Docker Setup
 
 ```bash
-# Avvia tutti i servizi
+# starts all services
 docker-compose up -d
 
-# Verifica stato
+# state verification
 docker-compose ps
 
 # Log
@@ -223,17 +223,17 @@ docker-compose logs -f
 
 ## API Endpoints
 
-### Autenticazione
-- `GET /api/v1/auth/hubspot/login` - Inizio OAuth (scope `automation`)
+### Auth
+- `GET /api/v1/auth/hubspot/login` - Beginning OAuth (scope `automation`)
 - `GET /api/v1/auth/callback` - Callback OAuth
 - `POST /api/v1/auth/refresh` - Refresh token
-- `GET /api/v1/auth/status` - Stato autenticazione
+- `GET /api/v1/auth/status` - state auth
 
-### Connessione HubSpot
-- `GET /api/v1/connector/deals` - Lista deal
-- `GET /api/v1/connector/contacts` - Lista contatti
-- `GET /api/v1/connector/companies` - Lista aziende
-- `GET /api/v1/connector/pipeline-stages` - Fasi pipeline
+### HubSpot Connection
+- `GET /api/v1/connector/deals` - deal list
+- `GET /api/v1/connector/contacts` - contact list
+- `GET /api/v1/connector/companies` - company list
+- `GET /api/v1/connector/pipeline-stages` - pipeline phases
 - `GET /api/v1/connector/workflows` - Workflow HubSpot
 
 ### Mining Processi
@@ -244,23 +244,23 @@ docker-compose logs -f
 - `GET /api/v1/mining/kpi` - Calcolo KPI
 
 ### Analytics e Simulazione
-- `POST /api/v1/analytics/simulate` - Simulazione What-If
-- `POST /api/v1/analytics/simulate/compare` - Confronto scenari
+- `POST /api/v1/analytics/simulate` - What-If Sim
+- `POST /api/v1/analytics/simulate/compare` - Compare scenarios
 - `GET /api/v1/analytics/health` - Health check analytics
 
 ### Data Quality
-- `POST /api/v1/dq/validate` - Validazione dati
-- `GET /api/v1/dq/report` - Report qualità
-- `POST /api/v1/dq/fix` - Correzione dati
+- `POST /api/v1/dq/validate` - Data Validation
+- `GET /api/v1/dq/report` - Quality report
+- `POST /api/v1/dq/fix` - Data fix
 
-### Gestione Processi
-- `GET /api/v1/processes` - Lista processi
-- `GET /api/v1/processes/{id}` - Dettaglio processo
-- `POST /api/v1/processes/analyze` - Analisi processo
+### Process Management
+- `GET /api/v1/processes` - process list
+- `GET /api/v1/processes/{id}` - process detail
+- `POST /api/v1/processes/analyze` - process analysis
 
-## Configurazione HubSpot
+## HubSpot config
 
-### Scopes Necessari
+### Necessary Scopes
 ```bash
 crm.objects.deals.read
 crm.objects.deals.write
@@ -272,10 +272,10 @@ settings.users.read
 automation
 ```
 
-### Configurazione App
-1. Crea app su [developers.hubspot.com](https://developers.hubspot.com)
-2. Configura OAuth 2.0 con tutti gli scopes
-3. Configura Redirect URI: `http://localhost:8000/api/v1/auth/callback`
+### App Config
+1. Create an app on [developers.hubspot.com](https://developers.hubspot.com)
+2. Configure OAuth 2.0 with all scopes
+3. Configure Redirect URI: `http://localhost:8000/api/v1/auth/callback`
 
 ## Testing
 
@@ -305,39 +305,15 @@ curl http://localhost:8000/api/v1/auth/status
 
 ### Docker Production
 ```bash
-# Build immagine
+# Build immage
 docker build -t process-mining:latest .
 
-# Deploy con docker-compose
+# Deploy with docker-compose
 docker-compose -f docker-compose.prod.yml up -d
 
-# Health check
+# Health check http://localhost:8000/api/v1/auth/callback` 
 curl https://your-domain.com/health
 ```
-
-### Reverse Proxy (Nginx)
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-## Contribuire
-
-1. Fork repository
-2. Crea branch: `git checkout -b feature/nome-feature`
-3. Commit: `git commit -m 'Aggiunta feature X'`
-4. Push: `git push origin feature/nome-feature`
-5. Pull Request
 
 ## Licenza
 
