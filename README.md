@@ -7,7 +7,7 @@ Process Mining Platform based on **FastAPI** (backend) & **React** (frontend) fo
 **Tech Stack:**
 - **Backend**: Python 3.12, FastAPI + Uvicorn, PM4Py, SimPy, Celery + Redis, SQLite
 - **Frontend**: React 18, TypeScript, @xyflow/react (React Flow), Material-UI, Vite
-- **Integrazione**: HubSpot OAuth 2.0 w/scope `automation` for workflow
+- **Integration**: HubSpot OAuth 2.0 w/scope `automation` for workflow
 
 ## System Architecture
 
@@ -15,7 +15,7 @@ Process Mining Platform based on **FastAPI** (backend) & **React** (frontend) fo
 
 1. **API REST (FastAPI)**
    - Endpoint for OAuth 2.0 authentication;
-   - Connection to CRM on HS with Worfklow extraction;
+   - Connection to HubSpot CRM with workflow extraction;
    - Process Discovery & Conformance Checking;
    - Simulation Engine for What-If Analysis;
    - Data Quality & Privacy Governance.
@@ -29,7 +29,7 @@ Process Mining Platform based on **FastAPI** (backend) & **React** (frontend) fo
 3. **ETL Pipeline**
    - Data extraction from HubSpot (Deal, Contact, Company, Workflows);
    - transformation in Event Logs;
-   - Validazione qualità dati;
+   - Data quality validation;
    - Pseudonymization as for GDPR regulations.
 
 4. **Process Mining Engine**
@@ -71,7 +71,7 @@ Process-Mining/
 │   │   └── routes_external_cards.py # External cards
 │   ├── connectors/                  # External connectors
 │   │   ├── hubspot_client.py        # Client HubSpot OAuth (get_workflows included)
-│   │   └── hubspot_mapper.py        # Mapping dati
+│   │   └── hubspot_mapper.py        # Data mapping
 │   ├── core/                        # Core Functionalities
 │   │   ├── config.py                # Config
 │   │   ├── database.py              # Database SQLite
@@ -96,7 +96,7 @@ Process-Mining/
 │   │   ├── etl_task.py              # ETL tasks(workflow included)
 │   │   ├── mining_task.py           # mining tasks
 │   │   ├── analytics_task.py        # What-If Simulation Task
-│   │   └── dq_task.py               # Task data quality
+│   │   └── dq_task.py               # Data quality task
 │   └── models/                      # Database models
 │       └── auth.py                  # AUTH Models
 ├── frontend/                        # React Frontend
@@ -199,7 +199,7 @@ The frontend uses a **synchronous ProtectedRoute** that:
 - If the token is absent, it redirects to the HubSpot login
 - The actual authorization occurs when individual APIs return 401 if the token is expired/invalid
 
-#### Variabili d'Ambiente Frontend
+#### Frontend Environment Variables
 
 | Var | DESC | Default |
 |-----------|-------------|---------|
@@ -236,14 +236,14 @@ docker-compose logs -f
 - `GET /api/v1/connector/pipeline-stages` - pipeline phases
 - `GET /api/v1/connector/workflows` - Workflow HubSpot
 
-### Mining Processi
+### Process Mining
 - `POST /api/v1/mining/discover` - Process Discovery
-- `GET /api/v1/mining/discover/dfg-with-automations/{id}` - DFG con automazioni
+- `GET /api/v1/mining/discover/dfg-with-automations/{id}` - DFG with automations
 - `POST /api/v1/mining/conformance` - Conformance Checking
-- `GET /api/v1/mining/variants` - Analisi varianti
-- `GET /api/v1/mining/kpi` - Calcolo KPI
+- `GET /api/v1/mining/variants` - Variant analysis
+- `GET /api/v1/mining/kpi` - KPI calculation
 
-### Analytics e Simulazione
+### Analytics & Simulation
 - `POST /api/v1/analytics/simulate` - What-If Sim
 - `POST /api/v1/analytics/simulate/compare` - Compare scenarios
 - `GET /api/v1/analytics/health` - Health check analytics
@@ -281,13 +281,13 @@ automation
 
 ### Test Backend
 ```bash
-# Test integrazione completo
+# Full integration test
 python -c "from app.core.integration import run_full_system_test_sync; run_full_system_test_sync()"
 
-# Test unitari
+# Unit tests
 poetry run pytest tests/
 
-# Test specifici
+# Specific tests
 poetry run pytest tests/test_etl.py -v
 poetry run pytest tests/test_mining.py -v
 ```
@@ -305,7 +305,7 @@ curl http://localhost:8000/api/v1/auth/status
 
 ### Docker Production
 ```bash
-# Build immage
+# Build image
 docker build -t process-mining:latest .
 
 # Deploy with docker-compose
@@ -315,11 +315,11 @@ docker-compose -f docker-compose.prod.yml up -d
 curl https://your-domain.com/health
 ```
 
-## Licenza
+## License
 
-MIT License - Vedere file LICENSE
+MIT License - see LICENSE file
 
-## Riferimenti
+## References
 
 - **FastAPI**: https://fastapi.tiangolo.com
 - **PM4Py**: https://pm4py.fit.fraunhofer.de
